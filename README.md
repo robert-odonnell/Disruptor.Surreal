@@ -118,7 +118,7 @@ permanently out of scope.)*
 | Method                                     | Rust | Disruptor.Surreal |
 |--------------------------------------------|------|-------------------|
 | `use_ns` / `use_db`                        | yes  | **yes**           |
-| `signin` / `signup`                        | yes  | partial — signin only, root credentials |
+| `signin` / `signup`                        | yes  | **yes**           |
 | `authenticate` / `invalidate`              | yes  | **yes**           |
 | `set` / `unset` (session vars)             | yes  | **yes**           |
 | `query` (with bindings)                    | yes  | **yes**           |
@@ -144,9 +144,9 @@ permanently out of scope.)*
 | Credential                    | Rust | Disruptor.Surreal |
 |-------------------------------|------|-------------------|
 | Root                          | yes  | **yes**           |
-| Namespace                     | yes  | no                |
-| Database                      | yes  | no                |
-| Record (scope, generic params)| yes  | no                |
+| Namespace                     | yes  | **yes**           |
+| Database                      | yes  | **yes**           |
+| Record (scope, generic params)| yes  | **yes**           |
 | Access token (bearer)         | yes  | **yes**           |
 | Refresh token / rotation      | yes  | no                |
 

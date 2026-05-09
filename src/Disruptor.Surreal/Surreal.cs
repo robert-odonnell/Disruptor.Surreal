@@ -96,6 +96,28 @@ public sealed class Surreal : IAsyncDisposable
         return ExtractToken(response);
     }
 
+    /// <summary>
+    /// Sign up a new user (typically record-scope) with the given credentials and return
+    /// the issued access token. Most commonly used with <see cref="Auth.Record"/>
+    /// credentials whose access method defines a <c>SIGNUP</c> query.
+    /// </summary>
+    public async Task<AccessToken> SignupAsync(ICredentials credentials, CancellationToken ct = default)
+    {
+        var response = await _connection
+            .SendAsync(new SignupCommand(credentials.ToObject()), ct)
+            .ConfigureAwait(false);
+
+        // Successful signup also establishes a session — capture for transparent re-auth.
+        _connection.ReauthHandler = async innerCt =>
+        {
+            await _connection
+                .SendAsync(new SigninCommand(credentials.ToObject()), innerCt)
+                .ConfigureAwait(false);
+        };
+
+        return ExtractToken(response);
+    }
+
     /// <summary>Authenticate the current session with a previously issued JWT.</summary>
     public Task AuthenticateAsync(string token, CancellationToken ct = default) =>
         _connection.SendAsync(new AuthenticateCommand(token), ct);
