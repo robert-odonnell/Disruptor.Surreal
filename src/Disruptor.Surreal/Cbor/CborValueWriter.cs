@@ -81,6 +81,10 @@ public static class CborValueWriter
                 WriteSet(writer, s.Set);
                 break;
 
+            case FileValue f:
+                WriteFile(writer, f.File);
+                break;
+
             default:
                 throw new InvalidOperationException($"Unhandled Value variant: {value.Kind}");
         }
@@ -159,6 +163,15 @@ public static class CborValueWriter
         writer.WriteTag(CborTags.Set.AsCborTag());
         writer.WriteStartArray(set.Count);
         foreach (var item in set) Write(writer, item);
+        writer.WriteEndArray();
+    }
+
+    private static void WriteFile(CborWriter writer, SurrealFile file)
+    {
+        writer.WriteTag(CborTags.File.AsCborTag());
+        writer.WriteStartArray(2);
+        writer.WriteTextString(file.Bucket);
+        writer.WriteTextString(file.Key);
         writer.WriteEndArray();
     }
 

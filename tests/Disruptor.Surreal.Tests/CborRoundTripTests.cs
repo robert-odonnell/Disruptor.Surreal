@@ -169,6 +169,22 @@ public class CborRoundTripTests
     }
 
     [Fact]
+    public void File_RoundTrips()
+    {
+        Value source = new FileValue(new SurrealFile("avatars", "/users/jaime.png"));
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
+    public void File_AutoPrependsLeadingSlash()
+    {
+        var f = new SurrealFile("bucket", "no-slash.txt");
+        Assert.Equal("/no-slash.txt", f.Key);
+    }
+
+    [Fact]
     public void Set_RoundTrips_Dedupes()
     {
         var set = new SurrealSet { 1L, 2L, 3L, 2L, 1L }; // duplicates collapse

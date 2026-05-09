@@ -19,6 +19,7 @@ public enum ValueKind
     RecordId,
     Table,
     Set,
+    File,
 }
 
 /// <summary>
@@ -164,4 +165,11 @@ public sealed record SetValue(SurrealSet Set) : Value
 {
     public override ValueKind Kind => ValueKind.Set;
     public override string ToString() => Set.ToString();
+}
+
+/// <summary>A file reference (bucket + key).</summary>
+public sealed record FileValue(SurrealFile File) : Value
+{
+    public override ValueKind Kind => ValueKind.File;
+    public override string ToString() => File.ToString();
 }

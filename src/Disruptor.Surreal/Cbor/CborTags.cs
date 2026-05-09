@@ -38,6 +38,9 @@ internal static class CborTags
     /// <summary>RFC 8949 §3.4.2 — UUID expressed as 16 raw bytes.</summary>
     public const ulong SpecUuid = 37;
 
+    /// <summary>File reference; payload is an array <c>[bucket, key]</c> of strings.</summary>
+    public const ulong File = 55;
+
     /// <summary>Set; payload is an array of values (uniqueness enforced by the consumer).</summary>
     public const ulong Set = 56;
 

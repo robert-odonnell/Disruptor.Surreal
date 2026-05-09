@@ -96,6 +96,7 @@ public static class CborValueReader
             CborTags.StringDuration => new DurationValue(ParseDurationText(reader.ReadTextString())),
             CborTags.CustomDuration => ReadCustomDuration(reader),
             CborTags.Set => ReadSet(reader),
+            CborTags.File => ReadFile(reader),
             _ => throw new CborContentException($"Unrecognized SurrealDB CBOR tag: {tag}"),
         };
     }
@@ -200,6 +201,17 @@ public static class CborValueReader
             set.Add(Read(reader));
         reader.ReadEndArray();
         return new SetValue(set);
+    }
+
+    private static Value ReadFile(CborReader reader)
+    {
+        var len = reader.ReadStartArray();
+        if (len != 2)
+            throw new CborContentException($"File payload must be an array of 2 strings; got length {len}.");
+        var bucket = reader.ReadTextString();
+        var key = reader.ReadTextString();
+        reader.ReadEndArray();
+        return new FileValue(new SurrealFile(bucket, key));
     }
 
     private static Value ReadObject(CborReader reader)

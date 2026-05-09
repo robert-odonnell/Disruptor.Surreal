@@ -166,7 +166,7 @@ permanently out of scope.)*
 | Set                                    | 56       | yes  | **yes** (`SurrealSet`, `SetValue`) |
 | Range / RecordIdKeyRange               | 49 / 50 / 51 | yes | no            |
 | Geometry (Point/Line/Polygon/Multi*/Collection) | 88–94 | yes | no       |
-| File (bucket reference)                | 55       | yes  | no                |
+| File (bucket reference)                | 55       | yes  | **yes** (`SurrealFile`, `FileValue`) |
 | Regex                                  | —        | yes  | no                |
 
 ### Connection lifecycle
