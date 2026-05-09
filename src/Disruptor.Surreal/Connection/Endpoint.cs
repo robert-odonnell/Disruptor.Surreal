@@ -20,6 +20,13 @@ public sealed record ConnectionConfig
 
     /// <summary>Maximum size of an inbound or outbound CBOR payload, in bytes.</summary>
     public int MaxMessageSize { get; init; } = 64 * 1024 * 1024;
+
+    /// <summary>
+    /// Skip the version-compat check after connect. Mirrors the Rust client's behaviour of
+    /// only running the check for remote endpoints and tolerating dev / unreleased servers.
+    /// Default false: the check runs and rejects servers outside <see cref="SupportedVersion.Range"/>.
+    /// </summary>
+    public bool SkipVersionCheck { get; init; }
 }
 
 /// <summary>An immutable, parsed SurrealDB endpoint.</summary>

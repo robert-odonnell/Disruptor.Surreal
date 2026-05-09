@@ -15,6 +15,12 @@ public sealed class Surreal : IAsyncDisposable
     internal Surreal(IConnection connection) => _connection = connection;
 
     /// <summary>Opens a WebSocket connection to <paramref name="url"/> and returns a connected client.</summary>
+    /// <remarks>
+    /// After the WebSocket handshake the client calls <c>version</c> and verifies the
+    /// reported version against <see cref="SupportedVersion.Range"/>. Mismatches throw
+    /// <see cref="SurrealConnectionException"/>. Set <see cref="ConnectionConfig.SkipVersionCheck"/>
+    /// to opt out (rare; mostly for development builds).
+    /// </remarks>
     public static async Task<Surreal> ConnectAsync(
         string url,
         ConnectionConfig? config = null,
@@ -22,7 +28,44 @@ public sealed class Surreal : IAsyncDisposable
     {
         var endpoint = Endpoint.Parse(url, config);
         var conn = await WebSocketConnection.ConnectAsync(endpoint, ct).ConfigureAwait(false);
-        return new Surreal(conn);
+        var client = new Surreal(conn);
+        if (!endpoint.Config.SkipVersionCheck)
+        {
+            try
+            {
+                await client.EnsureSupportedServerVersionAsync(ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                await client.DisposeAsync().ConfigureAwait(false);
+                throw;
+            }
+        }
+        return client;
+    }
+
+    /// <summary>
+    /// Calls the <c>version</c> RPC and throws <see cref="SurrealConnectionException"/>
+    /// if the server's major version is outside <see cref="SupportedVersion"/>.
+    /// </summary>
+    private async Task EnsureSupportedServerVersionAsync(CancellationToken ct)
+    {
+        var raw = await VersionAsync(ct).ConfigureAwait(false);
+        ServerVersion parsed;
+        try
+        {
+            parsed = ServerVersion.Parse(raw);
+        }
+        catch (FormatException ex)
+        {
+            throw new SurrealConnectionException(
+                $"Could not parse server version '{raw}'.", ex);
+        }
+        if (!SupportedVersion.IsSupported(parsed))
+        {
+            throw new SurrealConnectionException(
+                $"Server version {parsed} is outside the supported range {SupportedVersion.Range}.");
+        }
     }
 
     /// <summary>

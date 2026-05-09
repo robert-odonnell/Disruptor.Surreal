@@ -177,7 +177,7 @@ permanently out of scope.)*
 | One-shot connect + signin + use_ns/db              | n/a  | **yes**           |
 | Auto re-auth on token expiry (transparent retry)   | yes  | **yes**           |
 | Reconnect with session replay (outside txn)        | yes  | no                |
-| Server version compatibility check                 | yes  | no                |
+| Server version compatibility check                 | yes  | **yes** (`>=3.0.0-alpha.1, <4.0.0`; opt out via `ConnectionConfig.SkipVersionCheck`) |
 | Multi-session per connection                       | yes  | no                |
 
 ### Error / diagnostics
