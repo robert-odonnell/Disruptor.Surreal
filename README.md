@@ -163,7 +163,7 @@ permanently out of scope.)*
 | Table                                  | 7        | yes  | **yes**           |
 | RecordId (string / int / uuid keys)    | 8        | yes  | **yes**           |
 | Array / Object                         | — / —    | yes  | **yes**           |
-| Set                                    | 56       | yes  | no                |
+| Set                                    | 56       | yes  | **yes** (`SurrealSet`, `SetValue`) |
 | Range / RecordIdKeyRange               | 49 / 50 / 51 | yes | no            |
 | Geometry (Point/Line/Polygon/Multi*/Collection) | 88–94 | yes | no       |
 | File (bucket reference)                | 55       | yes  | no                |

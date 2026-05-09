@@ -18,6 +18,7 @@ public enum ValueKind
     Object,
     RecordId,
     Table,
+    Set,
 }
 
 /// <summary>
@@ -156,4 +157,11 @@ public sealed record TableValue(Table Table) : Value
 {
     public override ValueKind Kind => ValueKind.Table;
     public override string ToString() => Table.ToString();
+}
+
+/// <summary>An unordered set of unique values.</summary>
+public sealed record SetValue(SurrealSet Set) : Value
+{
+    public override ValueKind Kind => ValueKind.Set;
+    public override string ToString() => Set.ToString();
 }

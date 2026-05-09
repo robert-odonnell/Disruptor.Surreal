@@ -169,6 +169,27 @@ public class CborRoundTripTests
     }
 
     [Fact]
+    public void Set_RoundTrips_Dedupes()
+    {
+        var set = new SurrealSet { 1L, 2L, 3L, 2L, 1L }; // duplicates collapse
+        Assert.Equal(3, set.Count);
+        Value source = new SetValue(set);
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+        Assert.Equal(3, ((SetValue)decoded).Set.Count);
+    }
+
+    [Fact]
+    public void Set_Empty_RoundTrips()
+    {
+        Value source = new SetValue(new SurrealSet());
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
     public void NestedComposite_RoundTrips()
     {
         var inner = new SurrealObject { ["x"] = 1L, ["y"] = 2.5 };

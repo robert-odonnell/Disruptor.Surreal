@@ -95,6 +95,7 @@ public static class CborValueReader
                 Number.FromDecimal(decimal.Parse(reader.ReadTextString(), CultureInfo.InvariantCulture))),
             CborTags.StringDuration => new DurationValue(ParseDurationText(reader.ReadTextString())),
             CborTags.CustomDuration => ReadCustomDuration(reader),
+            CborTags.Set => ReadSet(reader),
             _ => throw new CborContentException($"Unrecognized SurrealDB CBOR tag: {tag}"),
         };
     }
@@ -189,6 +190,16 @@ public static class CborValueReader
             arr.Add(Read(reader));
         reader.ReadEndArray();
         return new ArrayValue(arr);
+    }
+
+    private static Value ReadSet(CborReader reader)
+    {
+        var len = reader.ReadStartArray();
+        var set = len.HasValue ? new SurrealSet(len.Value) : new SurrealSet();
+        while (reader.PeekState() != CborReaderState.EndArray)
+            set.Add(Read(reader));
+        reader.ReadEndArray();
+        return new SetValue(set);
     }
 
     private static Value ReadObject(CborReader reader)

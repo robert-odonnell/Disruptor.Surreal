@@ -77,6 +77,10 @@ public static class CborValueWriter
                 writer.WriteTextString(t.Table.Name);
                 break;
 
+            case SetValue s:
+                WriteSet(writer, s.Set);
+                break;
+
             default:
                 throw new InvalidOperationException($"Unhandled Value variant: {value.Kind}");
         }
@@ -147,6 +151,14 @@ public static class CborValueWriter
     {
         writer.WriteStartArray(arr.Count);
         foreach (var item in arr) Write(writer, item);
+        writer.WriteEndArray();
+    }
+
+    private static void WriteSet(CborWriter writer, SurrealSet set)
+    {
+        writer.WriteTag(CborTags.Set.AsCborTag());
+        writer.WriteStartArray(set.Count);
+        foreach (var item in set) Write(writer, item);
         writer.WriteEndArray();
     }
 
