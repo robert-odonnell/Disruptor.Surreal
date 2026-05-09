@@ -134,3 +134,19 @@ internal sealed record KillCommand(Guid LiveQueryId) : Command
     public override string Method => "kill";
     public override Value BuildParams() => new ArrayValue(new SurrealArray { LiveQueryId });
 }
+
+/// <summary>
+/// Bridge between the internal <see cref="Command"/> DSL and the public wire-level
+/// <see cref="IConnection.SendAsync(string, Value?, Guid?, CancellationToken)"/>.
+/// Keeps existing <c>_connection.SendAsync(new XCommand(...))</c> call sites in
+/// <see cref="Surreal"/> compiling without converting to the wire signature at every
+/// call.
+/// </summary>
+internal static class ConnectionCommandExtensions
+{
+    public static Task<Value> SendAsync(
+        this IConnection connection,
+        Command command,
+        CancellationToken ct = default) =>
+        connection.SendAsync(command.Method, command.BuildParams(), command.TxnId, ct);
+}

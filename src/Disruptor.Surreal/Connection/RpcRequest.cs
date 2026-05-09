@@ -23,9 +23,6 @@ internal readonly struct RpcRequest
         TxnId = txnId;
     }
 
-    public static RpcRequest FromCommand(long id, Command command) =>
-        new(id, command.Method, command.BuildParams(), command.TxnId);
-
     /// <summary>Encodes this request to a CBOR byte array.</summary>
     public byte[] Encode()
     {

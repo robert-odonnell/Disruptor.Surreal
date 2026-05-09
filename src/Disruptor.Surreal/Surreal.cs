@@ -13,7 +13,14 @@ public sealed class Surreal : IAsyncDisposable
 {
     private readonly IConnection _connection;
 
-    internal Surreal(IConnection connection) => _connection = connection;
+    /// <summary>
+    /// Create a client around a caller-supplied <see cref="IConnection"/>. The intended
+    /// use is testing — supply a fake/mock connection so unit tests can drive the
+    /// SDK without standing up a real WebSocket. Production callers should prefer
+    /// <see cref="ConnectAsync(string, ConnectionConfig?, CancellationToken)"/>.
+    /// </summary>
+    public Surreal(IConnection connection) =>
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
 
     /// <summary>Opens a WebSocket connection to <paramref name="url"/> and returns a connected client.</summary>
     /// <remarks>

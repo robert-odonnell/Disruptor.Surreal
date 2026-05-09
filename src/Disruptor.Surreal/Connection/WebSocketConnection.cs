@@ -99,28 +99,30 @@ internal sealed class WebSocketConnection : IConnection
         return conn;
     }
 
-    public async Task<Value> SendAsync(Command command, CancellationToken ct = default)
+    public async Task<Value> SendAsync(string method, Value? @params, Guid? txnId, CancellationToken ct = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(method);
         var epochAtStart = Volatile.Read(ref _reauthEpoch);
         try
         {
-            return await SendOnceAsync(command, ct).ConfigureAwait(false);
+            return await SendOnceAsync(method, @params, txnId, ct).ConfigureAwait(false);
         }
         catch (SurrealAuthException ex) when (ex.IsTokenExpired && ReauthHandler is not null
-                                              && command is not SigninCommand and not AuthenticateCommand)
+                                              // Don't loop into a re-auth attempt for an auth call itself.
+                                              && method is not "signin" and not "authenticate" and not "signup")
         {
             await ReauthAsync(epochAtStart, ct).ConfigureAwait(false);
-            return await SendOnceAsync(command, ct).ConfigureAwait(false);
+            return await SendOnceAsync(method, @params, txnId, ct).ConfigureAwait(false);
         }
     }
 
-    private async Task<Value> SendOnceAsync(Command command, CancellationToken ct)
+    private async Task<Value> SendOnceAsync(string method, Value? @params, Guid? txnId, CancellationToken ct)
     {
         if (!IsConnected)
             throw new SurrealConnectionException("WebSocket is not connected.");
 
         var id = Interlocked.Increment(ref _nextId);
-        var request = RpcRequest.FromCommand(id, command);
+        var request = new RpcRequest(id, method, @params, txnId);
 
         var tcs = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         if (!_pending.TryAdd(id, tcs))
@@ -322,7 +324,7 @@ internal sealed class WebSocketConnection : IConnection
                 if (!IsConnected) return;
                 try
                 {
-                    await SendAsync(new HealthCommand(), _shutdown.Token).ConfigureAwait(false);
+                    await ((IConnection)this).SendAsync(new HealthCommand(), _shutdown.Token).ConfigureAwait(false);
                 }
                 catch
                 {
