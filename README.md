@@ -97,7 +97,7 @@ permanently out of scope.)*
 | Transport                | Rust    | Disruptor.Surreal | Notes |
 |--------------------------|---------|-------------------|-------|
 | WebSocket (`ws`, `wss`)  | yes     | **yes**           | CBOR sub-protocol |
-| HTTP / HTTPS             | yes     | no                | Planned; CBOR `application/cbor` POST `/rpc` |
+| HTTP / HTTPS             | yes     | deferred          | We're WS-only by design; HTTP only revisited if a concrete consumer needs it (e.g. for export/import endpoints) |
 | Embedded `mem`           | yes     | **out**           | We trust the database |
 | Embedded `rocksdb`       | yes     | **out**           | — |
 | Embedded `surrealkv`     | yes     | **out**           | — |
@@ -110,8 +110,8 @@ permanently out of scope.)*
 | Format       | Rust         | Disruptor.Surreal | Notes |
 |--------------|--------------|-------------------|-------|
 | CBOR         | yes          | **yes**           | Via `System.Formats.Cbor` |
-| JSON         | partial      | no                | Server supports it; lossy for record-id / datetime / decimal types |
-| Flatbuffers  | yes (default)| no                | Rust client's current default; we don't intend to follow |
+| JSON         | partial      | **out**           | Server supports it; lossy for record-id / datetime / decimal types — we won't add it |
+| Flatbuffers  | yes (default)| **out**           | Rust client's current default; brings an IDL/codegen workflow we don't want |
 
 ### RPC methods
 
