@@ -88,16 +88,16 @@ Datetimes preserve full nanosecond precision via an explicit `Nanos` field
 ## Feature matrix
 
 Compared against the [official Rust client](https://github.com/surrealdb/surrealdb/tree/main/crates/sdk)
-as the de-facto reference implementation. *(Status legend: **yes** = supported,
-**no** = not supported today, **partial** = some sub-features only, **out** =
-permanently out of scope.)*
+as the de-facto reference implementation. *(Status legend: **yes** = supported, **no** = open work, **partial** = some
+sub-features only, **out** = permanently out of scope, **n/a** = no wire
+representation in the protocol.)*
 
 ### Transports
 
 | Transport                | Rust    | Disruptor.Surreal | Notes |
 |--------------------------|---------|-------------------|-------|
 | WebSocket (`ws`, `wss`)  | yes     | **yes**           | CBOR sub-protocol |
-| HTTP / HTTPS             | yes     | deferred          | We're WS-only by design; HTTP only revisited if a concrete consumer needs it (e.g. for export/import endpoints) |
+| HTTP / HTTPS             | yes     | **out**           | WS-only by design — single transport path, type-preserving CBOR, live queries possible |
 | Embedded `mem`           | yes     | **out**           | We trust the database |
 | Embedded `rocksdb`       | yes     | **out**           | — |
 | Embedded `surrealkv`     | yes     | **out**           | — |
@@ -136,7 +136,7 @@ permanently out of scope.)*
 | `version` / `ping` (health)                | yes  | **yes**           |
 | `begin` / `commit` / `cancel` (txn id)     | yes  | **yes**           |
 | `live` / `kill` (live queries)             | yes  | no                |
-| `export` / `import`                        | yes  | no                |
+| `export` / `import`                        | yes  | **out** — server-side these are HTTP endpoints (`/export`, `/import`), not RPC methods; out of scope alongside the HTTP transport |
 | ML model export                            | yes  | **out**           |
 
 ### Auth credentials
@@ -176,9 +176,9 @@ permanently out of scope.)*
 | Connection-string parsing                          | yes  | **yes** (ADO-style) |
 | One-shot connect + signin + use_ns/db              | n/a  | **yes**           |
 | Auto re-auth on token expiry (transparent retry)   | yes  | **yes**           |
-| Reconnect with session replay (outside txn)        | yes  | no                |
+| Reconnect with session replay (outside txn)        | yes  | **out** — explicit drop = explicit reconnect; we don't paper over connection state for the consumer |
 | Server version compatibility check                 | yes  | **yes** (`>=3.0.0-alpha.1, <4.0.0`; opt out via `ConnectionConfig.SkipVersionCheck`) |
-| Multi-session per connection                       | yes  | no                |
+| Multi-session per connection                       | yes  | **out** — one `Surreal` instance owns its WS 1:1; spin up a second for a second session |
 
 ### Error / diagnostics
 
