@@ -9,6 +9,7 @@
          CT-accepting method. Useful for long-running tests; pedantic for our fast
          unit tests that already complete in &lt; 1 ms. -->
     <NoWarn>$(NoWarn);CS1591;xUnit1051</NoWarn>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

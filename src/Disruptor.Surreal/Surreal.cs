@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using Disruptor.Surreal.Auth;
 using Disruptor.Surreal.Connection;
@@ -9,19 +10,16 @@ namespace Disruptor.Surreal;
 /// The SurrealDB client. Open one with <see cref="ConnectAsync(string, ConnectionConfig?, CancellationToken)"/>;
 /// the instance is thread-safe and a single instance can be reused across the app.
 /// </summary>
-public sealed class Surreal : IAsyncDisposable
+public sealed partial class Surreal(IConnection connection) : IAsyncDisposable
 {
-    private readonly IConnection connection;
-
     /// <summary>
     /// Create a client around a caller-supplied <see cref="IConnection"/>. The intended
     /// use is testing — supply a fake/mock connection so unit tests can drive the
     /// SDK without standing up a real WebSocket. Production callers should prefer
     /// <see cref="ConnectAsync(string, ConnectionConfig?, CancellationToken)"/>.
     /// </summary>
-    public Surreal(IConnection connection) =>
-        this.connection = connection ?? throw new ArgumentNullException(nameof(connection));
-
+    private readonly IConnection connection = connection ?? throw new ArgumentNullException(nameof(connection));
+    
     /// <summary>Opens a WebSocket connection to <paramref name="url"/> and returns a connected client.</summary>
     /// <remarks>
     /// After the WebSocket handshake the client calls <c>version</c> and verifies the
@@ -616,7 +614,7 @@ public sealed class Surreal : IAsyncDisposable
     private static void ValidateIdentifier(string value, string paramName)
     {
         ArgumentException.ThrowIfNullOrEmpty(value, paramName);
-        if (!System.Text.RegularExpressions.Regex.IsMatch(value, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+        if (!IdentifierRegex().IsMatch(value))
             throw new ArgumentException(
                 $"'{value}' is not a valid SurrealQL identifier; must match [a-zA-Z_][a-zA-Z0-9_]*.",
                 paramName);
@@ -624,4 +622,7 @@ public sealed class Surreal : IAsyncDisposable
 
     /// <inheritdoc />
     public ValueTask DisposeAsync() => connection.DisposeAsync();
+
+    [GeneratedRegex(@"^[a-zA-Z_][a-zA-Z0-9_]*$")]
+    private static partial Regex IdentifierRegex();
 }

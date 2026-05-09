@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Disruptor.Surreal.Connection;
 using Disruptor.Surreal.Values;
 
@@ -13,7 +14,7 @@ namespace Disruptor.Surreal;
 /// <see cref="CancelAsync(CancellationToken)"/>; disposing without explicit settlement
 /// triggers a best-effort cancel.
 /// </remarks>
-public sealed class Transaction : IAsyncDisposable
+public sealed partial class Transaction : IAsyncDisposable
 {
     private readonly Surreal client;
     private readonly IConnection connection;
@@ -190,7 +191,7 @@ public sealed class Transaction : IAsyncDisposable
         CancellationToken ct = default)
     {
         EnsureLive();
-        if (!System.Text.RegularExpressions.Regex.IsMatch(edgeTable, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+        if (!IdentifierRegex().IsMatch(edgeTable))
             throw new ArgumentException(
                 $"'{edgeTable}' is not a valid SurrealQL identifier.", nameof(edgeTable));
         var sql = content is null
@@ -244,4 +245,7 @@ public sealed class Transaction : IAsyncDisposable
             }
         }
     }
+
+    [GeneratedRegex(@"^[a-zA-Z_][a-zA-Z0-9_]*$")]
+    private static partial Regex IdentifierRegex();
 }

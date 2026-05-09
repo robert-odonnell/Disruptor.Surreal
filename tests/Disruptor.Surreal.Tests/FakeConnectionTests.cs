@@ -62,9 +62,9 @@ public class FakeConnectionTests
         await using var db = new Surreal(fake);
         var response = await db.QueryAsync("SELECT 42 AS answer");
 
-        var sent = Assert.Single(fake.Sent);
-        Assert.Equal("query", sent.Method);
-        Assert.Null(sent.TxnId);
+        var (s, _, txnId) = Assert.Single(fake.Sent);
+        Assert.Equal("query", s);
+        Assert.Null(txnId);
         var result = response.Take(0);
         var obj = Assert.IsType<ObjectValue>(result);
         Assert.Equal(42L, ((NumberValue)obj.Object["answer"]).Number.AsInt());
@@ -89,9 +89,9 @@ public class FakeConnectionTests
         await using var db = new Surreal(fake);
         await db.UseAsync("ns", "db");
 
-        var sent = Assert.Single(fake.Sent);
-        Assert.Equal("use", sent.Method);
-        var arr = Assert.IsType<ArrayValue>(sent.Params);
+        var (method, args, _) = Assert.Single(fake.Sent);
+        Assert.Equal("use", method);
+        var arr = Assert.IsType<ArrayValue>(args);    
         Assert.Equal(2, arr.Array.Count);
         Assert.Equal("ns", ((StringValue)arr.Array[0]).Value);
         Assert.Equal("db", ((StringValue)arr.Array[1]).Value);

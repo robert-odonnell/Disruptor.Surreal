@@ -11,7 +11,7 @@ public sealed class SurrealObject : IDictionary<string, Value>, IReadOnlyDiction
 {
     private readonly OrderedDictionary<string, Value> entries;
 
-    public SurrealObject() => entries = new();
+    public SurrealObject() => entries = [];
     public SurrealObject(int capacity) => entries = new(capacity);
     public SurrealObject(IEnumerable<KeyValuePair<string, Value>> entries) : this()
     {
