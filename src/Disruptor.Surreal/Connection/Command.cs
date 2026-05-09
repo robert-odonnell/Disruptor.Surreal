@@ -48,6 +48,12 @@ internal sealed record AuthenticateCommand(string Token) : Command
     public override Value BuildParams() => new ArrayValue(new SurrealArray { Token });
 }
 
+internal sealed record RefreshCommand(Auth.Token Token) : Command
+{
+    public override string Method => "refresh";
+    public override Value BuildParams() => new ArrayValue(new SurrealArray { Token.ToValue() });
+}
+
 internal sealed record InvalidateCommand : Command
 {
     public override string Method => "invalidate";

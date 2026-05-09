@@ -115,50 +115,110 @@ public sealed class Surreal : IAsyncDisposable
 
     // ─── Auth ───────────────────────────────────────────────────────────────────
 
-    /// <summary>Sign in with the given credentials and return the issued access token.</summary>
+    /// <summary>The most recently issued auth token, or <c>null</c> when not signed in.</summary>
+    /// <remarks>
+    /// Updated by <see cref="SigninAsync"/>, <see cref="SignupAsync"/>, and <see cref="RefreshAsync"/>;
+    /// cleared by <see cref="InvalidateAsync"/>.
+    /// </remarks>
+    public Token? CurrentToken { get; private set; }
+
+    /// <summary>
+    /// Sign in with the given credentials and return the issued <see cref="Token"/>
+    /// (access token, plus an optional refresh token when the access method has refresh
+    /// rotation enabled).
+    /// </summary>
     /// <remarks>
     /// On success the connection captures these credentials so that any subsequent RPC
-    /// failing with a token-expired auth error transparently re-signs in and retries once.
+    /// failing with a token-expired auth error transparently refreshes (when a refresh
+    /// token is held) or re-signs in (otherwise) and retries the original request once.
     /// Pass new credentials to override; <see cref="InvalidateAsync(CancellationToken)"/>
     /// clears them.
     /// </remarks>
-    public async Task<AccessToken> SigninAsync(ICredentials credentials, CancellationToken ct = default)
+    public async Task<Token> SigninAsync(ICredentials credentials, CancellationToken ct = default)
     {
         var response = await _connection
             .SendAsync(new SigninCommand(credentials.ToObject()), ct)
             .ConfigureAwait(false);
 
-        // Capture credentials for transparent re-auth on token expiry.
-        _connection.ReauthHandler = async innerCt =>
-        {
-            await _connection
-                .SendAsync(new SigninCommand(credentials.ToObject()), innerCt)
-                .ConfigureAwait(false);
-        };
-
-        return ExtractToken(response);
+        var token = Token.FromValue(response);
+        CurrentToken = token;
+        InstallReauthHandler(credentials);
+        return token;
     }
 
     /// <summary>
     /// Sign up a new user (typically record-scope) with the given credentials and return
-    /// the issued access token. Most commonly used with <see cref="Auth.Record"/>
+    /// the issued <see cref="Token"/>. Most commonly used with <see cref="Auth.Record"/>
     /// credentials whose access method defines a <c>SIGNUP</c> query.
     /// </summary>
-    public async Task<AccessToken> SignupAsync(ICredentials credentials, CancellationToken ct = default)
+    public async Task<Token> SignupAsync(ICredentials credentials, CancellationToken ct = default)
     {
         var response = await _connection
             .SendAsync(new SignupCommand(credentials.ToObject()), ct)
             .ConfigureAwait(false);
 
-        // Successful signup also establishes a session — capture for transparent re-auth.
+        var token = Token.FromValue(response);
+        CurrentToken = token;
+        InstallReauthHandler(credentials);
+        return token;
+    }
+
+    /// <summary>
+    /// Exchange a refresh token for a new <see cref="Token"/>. The argument must include
+    /// both <c>access</c> and <c>refresh</c> components — the server-side refresh flow
+    /// requires the full token shape.
+    /// </summary>
+    /// <remarks>
+    /// Mirrors the Rust client's <c>Command::Refresh</c> (<c>src/conn/cmd.rs</c>):
+    /// sends the entire token structure as <c>params[0]</c> to the <c>refresh</c> RPC.
+    /// </remarks>
+    public async Task<Token> RefreshAsync(Token token, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        if (token.Refresh is null)
+            throw new InvalidOperationException(
+                "RefreshAsync requires a Token carrying both access and refresh components.");
+
+        var response = await _connection
+            .SendAsync(new RefreshCommand(token), ct)
+            .ConfigureAwait(false);
+
+        var renewed = Token.FromValue(response);
+        CurrentToken = renewed;
+        return renewed;
+    }
+
+    /// <summary>
+    /// Install the reauth handler used by the connection on token-expiry errors.
+    /// Prefers the refresh-token flow when available; falls back to re-signin.
+    /// </summary>
+    private void InstallReauthHandler(ICredentials credentials)
+    {
         _connection.ReauthHandler = async innerCt =>
         {
-            await _connection
+            // Prefer refresh-token rotation if the most recent token carries one.
+            var existing = CurrentToken;
+            if (existing?.Refresh is not null)
+            {
+                try
+                {
+                    var renewed = await _connection
+                        .SendAsync(new RefreshCommand(existing), innerCt)
+                        .ConfigureAwait(false);
+                    CurrentToken = Token.FromValue(renewed);
+                    return;
+                }
+                catch (SurrealAuthException)
+                {
+                    // Refresh failed — fall through to credentials-based re-signin.
+                }
+            }
+
+            var response = await _connection
                 .SendAsync(new SigninCommand(credentials.ToObject()), innerCt)
                 .ConfigureAwait(false);
+            CurrentToken = Token.FromValue(response);
         };
-
-        return ExtractToken(response);
     }
 
     /// <summary>Authenticate the current session with a previously issued JWT.</summary>
@@ -174,8 +234,10 @@ public sealed class Surreal : IAsyncDisposable
         }
         finally
         {
-            // Clear cached credentials so we don't silently re-auth after explicit invalidation.
+            // Clear cached credentials and the captured token so we don't silently
+            // re-auth after explicit invalidation.
             _connection.ReauthHandler = null;
+            CurrentToken = null;
         }
     }
 
@@ -484,15 +546,6 @@ public sealed class Surreal : IAsyncDisposable
                 $"'{value}' is not a valid SurrealQL identifier; must match [a-zA-Z_][a-zA-Z0-9_]*.",
                 paramName);
     }
-
-    private static AccessToken ExtractToken(Value value) => value switch
-    {
-        StringValue s => new AccessToken(s.Value),
-        ObjectValue obj when obj.Object.TryGetValue("access", out var a)
-            && a is StringValue accessStr => new AccessToken(accessStr.Value),
-        _ => throw new SurrealProtocolException(
-            $"Signin response was not a token (got {value.Kind})."),
-    };
 
     /// <inheritdoc />
     public ValueTask DisposeAsync() => _connection.DisposeAsync();

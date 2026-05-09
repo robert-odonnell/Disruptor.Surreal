@@ -148,7 +148,7 @@ permanently out of scope.)*
 | Database                      | yes  | **yes**           |
 | Record (scope, generic params)| yes  | **yes**           |
 | Access token (bearer)         | yes  | **yes**           |
-| Refresh token / rotation      | yes  | no                |
+| Refresh token / rotation      | yes  | **yes** (`Token { Access, Refresh? }`, `RefreshAsync`) |
 
 ### Value tree
 

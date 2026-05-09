@@ -5,7 +5,7 @@ namespace Disruptor.Surreal.Auth;
 /// <summary>Marker interface for credential payloads that can be signed in.</summary>
 public interface ICredentials
 {
-    /// <summary>Renders the credentials to the wire-level <see cref="Object"/>.</summary>
+    /// <summary>Renders the credentials to the wire-level <see cref="SurrealObject"/>.</summary>
     SurrealObject ToObject();
 }
 
@@ -24,22 +24,30 @@ public sealed record Root(string Username, string Password) : ICredentials
 }
 
 /// <summary>
-/// An access token returned by signin/signup/authenticate. The string is redacted
-/// in <see cref="ToString"/>; access it via <see cref="Token"/> when you need to send it.
+/// A JWT access token issued by SurrealDB. Wraps the bearer string with a redacted
+/// <see cref="ToString"/> so it doesn't appear in logs by accident.
 /// </summary>
+/// <remarks>
+/// Mirrors the Rust client's <c>opt::auth::AccessToken</c> — same secure-string
+/// pattern, same <c>as_insecure_token()</c> method to escape the wrapper when you
+/// need to send it.
+/// </remarks>
 public sealed class AccessToken
 {
-    /// <summary>The raw bearer token. Treat as a secret.</summary>
-    public string Token { get; }
+    private readonly string _value;
 
-    public AccessToken(string token)
+    public AccessToken(string value)
     {
-        ArgumentException.ThrowIfNullOrEmpty(token);
-        Token = token;
+        ArgumentException.ThrowIfNullOrEmpty(value);
+        _value = value;
     }
 
-    /// <summary>Returns a redacted placeholder. Use <see cref="Token"/> to access the value.</summary>
+    /// <summary>Returns the bearer string. Treat as a secret.</summary>
+    public string AsInsecureToken() => _value;
+
+    /// <summary>Returns a redacted placeholder. Use <see cref="AsInsecureToken"/> to access the value.</summary>
     public override string ToString() => "AccessToken(REDACTED)";
 
-    public static implicit operator string(AccessToken t) => t.Token;
+    /// <summary>Implicit conversion to string for callers that need the bearer value directly.</summary>
+    public static implicit operator string(AccessToken t) => t._value;
 }
