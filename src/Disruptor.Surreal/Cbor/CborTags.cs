@@ -53,6 +53,27 @@ internal static class CborTags
     /// <summary>Set; payload is an array of values (uniqueness enforced by the consumer).</summary>
     public const ulong Set = 56;
 
+    /// <summary>Geometry Point; payload is array <c>[x: float, y: float]</c>.</summary>
+    public const ulong GeometryPoint = 88;
+
+    /// <summary>Geometry Line (polyline); payload is array of <see cref="GeometryPoint"/>-tagged values.</summary>
+    public const ulong GeometryLine = 89;
+
+    /// <summary>Geometry Polygon; payload is array of <see cref="GeometryLine"/>-tagged values (first is exterior, rest are holes).</summary>
+    public const ulong GeometryPolygon = 90;
+
+    /// <summary>Geometry MultiPoint; payload is array of <see cref="GeometryPoint"/>-tagged values.</summary>
+    public const ulong GeometryMultiPoint = 91;
+
+    /// <summary>Geometry MultiLine; payload is array of <see cref="GeometryLine"/>-tagged values.</summary>
+    public const ulong GeometryMultiLine = 92;
+
+    /// <summary>Geometry MultiPolygon; payload is array of <see cref="GeometryPolygon"/>-tagged values.</summary>
+    public const ulong GeometryMultiPolygon = 93;
+
+    /// <summary>Geometry Collection; payload is heterogeneous array of geometry-tagged values.</summary>
+    public const ulong GeometryCollection = 94;
+
     /// <summary>Returns the <see cref="CborTag"/> equivalent.</summary>
     public static CborTag AsCborTag(this ulong tag) => (CborTag)tag;
 }

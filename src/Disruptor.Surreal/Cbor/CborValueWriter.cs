@@ -89,6 +89,10 @@ public static class CborValueWriter
                 WriteRange(writer, r.Range);
                 break;
 
+            case GeometryValue g:
+                WriteGeometry(writer, g.Geometry);
+                break;
+
             default:
                 throw new InvalidOperationException($"Unhandled Value variant: {value.Kind}");
         }
@@ -205,6 +209,59 @@ public static class CborValueWriter
                 break;
             default:
                 throw new InvalidOperationException($"Unhandled Bound<Value>: {bound}");
+        }
+    }
+
+    private static void WriteGeometry(CborWriter writer, Geometry g)
+    {
+        switch (g)
+        {
+            case Geometry.Point p:
+                writer.WriteTag(CborTags.GeometryPoint.AsCborTag());
+                writer.WriteStartArray(2);
+                writer.WriteDouble(p.X);
+                writer.WriteDouble(p.Y);
+                writer.WriteEndArray();
+                break;
+            case Geometry.Line l:
+                writer.WriteTag(CborTags.GeometryLine.AsCborTag());
+                writer.WriteStartArray(l.Points.Count);
+                foreach (var pt in l.Points) WriteGeometry(writer, pt);
+                writer.WriteEndArray();
+                break;
+            case Geometry.Polygon p:
+                writer.WriteTag(CborTags.GeometryPolygon.AsCborTag());
+                writer.WriteStartArray(1 + p.Interiors.Count);
+                WriteGeometry(writer, p.Exterior);
+                foreach (var hole in p.Interiors) WriteGeometry(writer, hole);
+                writer.WriteEndArray();
+                break;
+            case Geometry.MultiPoint mp:
+                writer.WriteTag(CborTags.GeometryMultiPoint.AsCborTag());
+                writer.WriteStartArray(mp.Points.Count);
+                foreach (var pt in mp.Points) WriteGeometry(writer, pt);
+                writer.WriteEndArray();
+                break;
+            case Geometry.MultiLine ml:
+                writer.WriteTag(CborTags.GeometryMultiLine.AsCborTag());
+                writer.WriteStartArray(ml.Lines.Count);
+                foreach (var ln in ml.Lines) WriteGeometry(writer, ln);
+                writer.WriteEndArray();
+                break;
+            case Geometry.MultiPolygon mpoly:
+                writer.WriteTag(CborTags.GeometryMultiPolygon.AsCborTag());
+                writer.WriteStartArray(mpoly.Polygons.Count);
+                foreach (var poly in mpoly.Polygons) WriteGeometry(writer, poly);
+                writer.WriteEndArray();
+                break;
+            case Geometry.Collection col:
+                writer.WriteTag(CborTags.GeometryCollection.AsCborTag());
+                writer.WriteStartArray(col.Items.Count);
+                foreach (var item in col.Items) WriteGeometry(writer, item);
+                writer.WriteEndArray();
+                break;
+            default:
+                throw new InvalidOperationException($"Unhandled Geometry: {g}");
         }
     }
 

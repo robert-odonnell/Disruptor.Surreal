@@ -165,9 +165,9 @@ permanently out of scope.)*
 | Array / Object                         | — / —    | yes  | **yes**           |
 | Set                                    | 56       | yes  | **yes** (`SurrealSet`, `SetValue`) |
 | Range / RecordIdKeyRange               | 49 / 50 / 51 | yes | **yes** (`SurrealRange`, `Bound<T>`, `RecordIdKeyRange`, `RangeRecordIdKey`) |
-| Geometry (Point/Line/Polygon/Multi*/Collection) | 88–94 | yes | no       |
+| Geometry (Point/Line/Polygon/Multi*/Collection) | 88–94 | yes | **yes** (`Geometry.Point/Line/Polygon/MultiPoint/MultiLine/MultiPolygon/Collection`) |
 | File (bucket reference)                | 55       | yes  | **yes** (`SurrealFile`, `FileValue`) |
-| Regex                                  | —        | yes  | no                |
+| Regex                                  | —        | yes  | n/a — Rust source explicitly errors on CBOR encoding for regex (`convert.rs:450`); no wire shape exists |
 
 ### Connection lifecycle
 

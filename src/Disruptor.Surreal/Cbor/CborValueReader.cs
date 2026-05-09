@@ -98,6 +98,13 @@ public static class CborValueReader
             CborTags.Set => ReadSet(reader),
             CborTags.File => ReadFile(reader),
             CborTags.Range => new RangeValue(ReadRange(reader)),
+            CborTags.GeometryPoint => new GeometryValue(ReadGeometryPoint(reader)),
+            CborTags.GeometryLine => new GeometryValue(ReadGeometryLine(reader)),
+            CborTags.GeometryPolygon => new GeometryValue(ReadGeometryPolygon(reader)),
+            CborTags.GeometryMultiPoint => new GeometryValue(ReadGeometryMultiPoint(reader)),
+            CborTags.GeometryMultiLine => new GeometryValue(ReadGeometryMultiLine(reader)),
+            CborTags.GeometryMultiPolygon => new GeometryValue(ReadGeometryMultiPolygon(reader)),
+            CborTags.GeometryCollection => new GeometryValue(ReadGeometryCollection(reader)),
             _ => throw new CborContentException($"Unrecognized SurrealDB CBOR tag: {tag}"),
         };
     }
@@ -264,6 +271,113 @@ public static class CborValueReader
             var v = Read(reader);
             return included ? new Bound<Value>.Included(v) : new Bound<Value>.Excluded(v);
         }
+    }
+
+    // ─── Geometry decoders ────────────────────────────────────────────────────
+    // The tag has already been read by ReadTagged before each entry point.
+
+    private static Geometry.Point ReadGeometryPoint(CborReader reader)
+    {
+        var len = reader.ReadStartArray();
+        if (len != 2)
+            throw new CborContentException($"Geometry Point payload must be array of 2; got length {len}.");
+        var x = reader.ReadDouble();
+        var y = reader.ReadDouble();
+        reader.ReadEndArray();
+        return new Geometry.Point(x, y);
+    }
+
+    private static Geometry.Line ReadGeometryLine(CborReader reader)
+    {
+        reader.ReadStartArray();
+        var pts = new List<Geometry.Point>();
+        while (reader.PeekState() != CborReaderState.EndArray)
+            pts.Add(ReadInnerGeometry(reader) is Geometry.Point p
+                ? p
+                : throw new CborContentException("Geometry Line elements must be Points."));
+        reader.ReadEndArray();
+        return new Geometry.Line(pts);
+    }
+
+    private static Geometry.Polygon ReadGeometryPolygon(CborReader reader)
+    {
+        reader.ReadStartArray();
+        var lines = new List<Geometry.Line>();
+        while (reader.PeekState() != CborReaderState.EndArray)
+            lines.Add(ReadInnerGeometry(reader) is Geometry.Line l
+                ? l
+                : throw new CborContentException("Geometry Polygon elements must be Lines."));
+        reader.ReadEndArray();
+        if (lines.Count == 0)
+            throw new CborContentException("Geometry Polygon must have at least an exterior ring.");
+        return new Geometry.Polygon(lines[0], lines.Skip(1));
+    }
+
+    private static Geometry.MultiPoint ReadGeometryMultiPoint(CborReader reader)
+    {
+        reader.ReadStartArray();
+        var pts = new List<Geometry.Point>();
+        while (reader.PeekState() != CborReaderState.EndArray)
+            pts.Add(ReadInnerGeometry(reader) is Geometry.Point p
+                ? p
+                : throw new CborContentException("MultiPoint elements must be Points."));
+        reader.ReadEndArray();
+        return new Geometry.MultiPoint(pts);
+    }
+
+    private static Geometry.MultiLine ReadGeometryMultiLine(CborReader reader)
+    {
+        reader.ReadStartArray();
+        var lines = new List<Geometry.Line>();
+        while (reader.PeekState() != CborReaderState.EndArray)
+            lines.Add(ReadInnerGeometry(reader) is Geometry.Line l
+                ? l
+                : throw new CborContentException("MultiLine elements must be Lines."));
+        reader.ReadEndArray();
+        return new Geometry.MultiLine(lines);
+    }
+
+    private static Geometry.MultiPolygon ReadGeometryMultiPolygon(CborReader reader)
+    {
+        reader.ReadStartArray();
+        var polys = new List<Geometry.Polygon>();
+        while (reader.PeekState() != CborReaderState.EndArray)
+            polys.Add(ReadInnerGeometry(reader) is Geometry.Polygon p
+                ? p
+                : throw new CborContentException("MultiPolygon elements must be Polygons."));
+        reader.ReadEndArray();
+        return new Geometry.MultiPolygon(polys);
+    }
+
+    private static Geometry.Collection ReadGeometryCollection(CborReader reader)
+    {
+        reader.ReadStartArray();
+        var items = new List<Geometry>();
+        while (reader.PeekState() != CborReaderState.EndArray)
+            items.Add(ReadInnerGeometry(reader));
+        reader.ReadEndArray();
+        return new Geometry.Collection(items);
+    }
+
+    /// <summary>Reads a tagged geometry payload, returning the bare <see cref="Geometry"/>.</summary>
+    private static Geometry ReadInnerGeometry(CborReader reader)
+    {
+        if (reader.PeekState() != CborReaderState.Tag)
+            throw new CborContentException(
+                $"Expected a tagged Geometry value; got {reader.PeekState()}.");
+        var tag = (ulong)reader.PeekTag();
+        reader.ReadTag();
+        return tag switch
+        {
+            CborTags.GeometryPoint => ReadGeometryPoint(reader),
+            CborTags.GeometryLine => ReadGeometryLine(reader),
+            CborTags.GeometryPolygon => ReadGeometryPolygon(reader),
+            CborTags.GeometryMultiPoint => ReadGeometryMultiPoint(reader),
+            CborTags.GeometryMultiLine => ReadGeometryMultiLine(reader),
+            CborTags.GeometryMultiPolygon => ReadGeometryMultiPolygon(reader),
+            CborTags.GeometryCollection => ReadGeometryCollection(reader),
+            _ => throw new CborContentException($"Unexpected tag {tag} in Geometry context."),
+        };
     }
 
     private static RecordIdKeyRange ReadRecordIdKeyRange(CborReader reader)

@@ -222,6 +222,77 @@ public class CborRoundTripTests
     }
 
     [Fact]
+    public void Geometry_Point_RoundTrips()
+    {
+        Value source = new GeometryValue(new Geometry.Point(1.5, -2.25));
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
+    public void Geometry_Line_RoundTrips()
+    {
+        var line = new Geometry.Line(new[]
+        {
+            new Geometry.Point(0, 0),
+            new Geometry.Point(1, 1),
+            new Geometry.Point(2, 0),
+        });
+        Value source = new GeometryValue(line);
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
+    public void Geometry_PolygonWithHole_RoundTrips()
+    {
+        var exterior = new Geometry.Line(new[]
+        {
+            new Geometry.Point(0, 0), new Geometry.Point(10, 0),
+            new Geometry.Point(10, 10), new Geometry.Point(0, 10),
+            new Geometry.Point(0, 0),
+        });
+        var hole = new Geometry.Line(new[]
+        {
+            new Geometry.Point(2, 2), new Geometry.Point(4, 2),
+            new Geometry.Point(4, 4), new Geometry.Point(2, 4),
+            new Geometry.Point(2, 2),
+        });
+        Value source = new GeometryValue(new Geometry.Polygon(exterior, new[] { hole }));
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
+    public void Geometry_MultiPoint_RoundTrips()
+    {
+        Value source = new GeometryValue(new Geometry.MultiPoint(new[]
+        {
+            new Geometry.Point(1, 2), new Geometry.Point(3, 4),
+        }));
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
+    public void Geometry_Collection_HeterogeneousRoundTrips()
+    {
+        var collection = new Geometry.Collection(new Geometry[]
+        {
+            new Geometry.Point(0, 0),
+            new Geometry.Line(new[] { new Geometry.Point(0, 0), new Geometry.Point(1, 1) }),
+        });
+        Value source = new GeometryValue(collection);
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
     public void File_RoundTrips()
     {
         Value source = new FileValue(new SurrealFile("avatars", "/users/jaime.png"));

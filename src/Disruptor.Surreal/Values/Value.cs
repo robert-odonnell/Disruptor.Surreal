@@ -21,6 +21,7 @@ public enum ValueKind
     Set,
     File,
     Range,
+    Geometry,
 }
 
 /// <summary>
@@ -180,4 +181,11 @@ public sealed record RangeValue(SurrealRange Range) : Value
 {
     public override ValueKind Kind => ValueKind.Range;
     public override string ToString() => Range.ToString();
+}
+
+/// <summary>A 2D geometry primitive (point, line, polygon, multi-*, collection).</summary>
+public sealed record GeometryValue(Geometry Geometry) : Value
+{
+    public override ValueKind Kind => ValueKind.Geometry;
+    public override string ToString() => Geometry.ToString() ?? "<geometry>";
 }
