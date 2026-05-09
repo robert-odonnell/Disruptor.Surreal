@@ -214,6 +214,95 @@ public sealed class Surreal : IAsyncDisposable
     public Task<Value> DeleteAsync(IRecordId id, CancellationToken ct = default) =>
         ResourceQueryAsync("DELETE $_record_id RETURN BEFORE", ResourceVars(id.ToRecordId()), txn: null, ct);
 
+    /// <summary>Upsert records on a table (create-or-replace) with the given content.</summary>
+    public Task<Value> UpsertAsync(string table, SurrealObject content, CancellationToken ct = default) =>
+        ResourceQueryAsync("UPSERT $_table CONTENT $_content",
+            ResourceVars(table, content), txn: null, ct);
+
+    /// <summary>Upsert a record at a specific id.</summary>
+    public Task<Value> UpsertAsync(IRecordId id, SurrealObject content, CancellationToken ct = default) =>
+        ResourceQueryAsync("UPSERT $_record_id CONTENT $_content",
+            ResourceVars(id.ToRecordId(), content), txn: null, ct);
+
+    /// <summary>Merge fields into existing records on a table (partial update).</summary>
+    public Task<Value> MergeAsync(string table, SurrealObject content, CancellationToken ct = default) =>
+        ResourceQueryAsync("UPDATE $_table MERGE $_content",
+            ResourceVars(table, content), txn: null, ct);
+
+    /// <summary>Merge fields into a single existing record (partial update).</summary>
+    public Task<Value> MergeAsync(IRecordId id, SurrealObject content, CancellationToken ct = default) =>
+        ResourceQueryAsync("UPDATE $_record_id MERGE $_content",
+            ResourceVars(id.ToRecordId(), content), txn: null, ct);
+
+    /// <summary>Apply JSON-Patch operations to records on a table. Use <see cref="Patch"/> to author ops.</summary>
+    public Task<Value> PatchAsync(string table, IEnumerable<SurrealObject> patches, CancellationToken ct = default) =>
+        ResourceQueryAsync("UPDATE $_table PATCH $_patches", PatchVars(table, patches), txn: null, ct);
+
+    /// <summary>Apply JSON-Patch operations to a single record. Use <see cref="Patch"/> to author ops.</summary>
+    public Task<Value> PatchAsync(IRecordId id, IEnumerable<SurrealObject> patches, CancellationToken ct = default) =>
+        ResourceQueryAsync("UPDATE $_record_id PATCH $_patches", PatchVars(id.ToRecordId(), patches), txn: null, ct);
+
+    /// <summary>Insert a single record into a table. Returns the inserted record (server may auto-assign an id).</summary>
+    public Task<Value> InsertAsync(string table, SurrealObject content, CancellationToken ct = default) =>
+        ResourceQueryAsync("INSERT INTO $_table $_content",
+            ResourceVars(table, content), txn: null, ct);
+
+    /// <summary>Insert multiple records into a table in one call.</summary>
+    public Task<Value> InsertAsync(string table, IEnumerable<SurrealObject> records, CancellationToken ct = default) =>
+        ResourceQueryAsync("INSERT INTO $_table $_records", InsertManyVars(table, records), txn: null, ct);
+
+    /// <summary>
+    /// Insert one graph-edge record into <paramref name="edgeTable"/>. <paramref name="content"/> must
+    /// supply <c>in</c> and <c>out</c> fields (record ids).
+    /// </summary>
+    public Task<Value> InsertRelationAsync(string edgeTable, SurrealObject content, CancellationToken ct = default) =>
+        ResourceQueryAsync("INSERT RELATION INTO $_table $_content",
+            ResourceVars(edgeTable, content), txn: null, ct);
+
+    /// <summary>Insert multiple graph-edge records into <paramref name="edgeTable"/> in one call.</summary>
+    public Task<Value> InsertRelationAsync(string edgeTable, IEnumerable<SurrealObject> relations, CancellationToken ct = default) =>
+        ResourceQueryAsync("INSERT RELATION INTO $_table $_records", InsertManyVars(edgeTable, relations), txn: null, ct);
+
+    /// <summary>
+    /// Create a single graph edge: <c>RELATE source -&gt; edgeTable -&gt; target [CONTENT { ... }]</c>.
+    /// </summary>
+    public Task<Value> RelateAsync(
+        IRecordId source,
+        string edgeTable,
+        IRecordId target,
+        SurrealObject? content = null,
+        CancellationToken ct = default)
+    {
+        ValidateIdentifier(edgeTable, nameof(edgeTable));
+        var sql = content is null
+            ? $"RELATE $_source->{edgeTable}->$_target"
+            : $"RELATE $_source->{edgeTable}->$_target CONTENT $_content";
+        var vars = new SurrealObject
+        {
+            ["_source"] = new RecordIdValue(source.ToRecordId()),
+            ["_target"] = new RecordIdValue(target.ToRecordId()),
+        };
+        if (content is not null) vars["_content"] = new ObjectValue(content);
+        return ResourceQueryAsync(sql, vars, txn: null, ct);
+    }
+
+    /// <summary>
+    /// Execute a server-side function (defined via <c>DEFINE FUNCTION</c>). Returns whatever
+    /// the function returns. Function name may include <c>::</c> namespace separators
+    /// (e.g. <c>fn::math::add</c> is passed as <c>"math::add"</c>).
+    /// </summary>
+    public async Task<Value> RunAsync(
+        string name,
+        IReadOnlyList<Value>? args = null,
+        string? version = null,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return await _connection
+            .SendAsync(new RunCommand(name, version, args ?? System.Array.Empty<Value>()), ct)
+            .ConfigureAwait(false);
+    }
+
     // ─── Transactions ──────────────────────────────────────────────────────────
 
     /// <summary>
@@ -281,6 +370,54 @@ public sealed class Surreal : IAsyncDisposable
         var o = new SurrealObject { ["_record_id"] = new RecordIdValue(id) };
         if (content is not null) o["_content"] = new ObjectValue(content);
         return o;
+    }
+
+    private static SurrealObject PatchVars(string table, IEnumerable<SurrealObject> patches)
+    {
+        var arr = new SurrealArray();
+        foreach (var p in patches) arr.Add(new ObjectValue(p));
+        return new SurrealObject
+        {
+            ["_table"] = new TableValue(new Table(table)),
+            ["_patches"] = new ArrayValue(arr),
+        };
+    }
+
+    private static SurrealObject PatchVars(RecordId id, IEnumerable<SurrealObject> patches)
+    {
+        var arr = new SurrealArray();
+        foreach (var p in patches) arr.Add(new ObjectValue(p));
+        return new SurrealObject
+        {
+            ["_record_id"] = new RecordIdValue(id),
+            ["_patches"] = new ArrayValue(arr),
+        };
+    }
+
+    private static SurrealObject InsertManyVars(string table, IEnumerable<SurrealObject> records)
+    {
+        var arr = new SurrealArray();
+        foreach (var r in records) arr.Add(new ObjectValue(r));
+        return new SurrealObject
+        {
+            ["_table"] = new TableValue(new Table(table)),
+            ["_records"] = new ArrayValue(arr),
+        };
+    }
+
+    /// <summary>
+    /// Validates that <paramref name="value"/> is a SurrealQL identifier
+    /// (<c>[a-zA-Z_][a-zA-Z0-9_]*</c>). Used where the value will be inlined into
+    /// SurrealQL rather than passed as a binding (e.g. the edge-table position in
+    /// <c>RELATE source-&gt;edge-&gt;target</c>).
+    /// </summary>
+    private static void ValidateIdentifier(string value, string paramName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(value, paramName);
+        if (!System.Text.RegularExpressions.Regex.IsMatch(value, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+            throw new ArgumentException(
+                $"'{value}' is not a valid SurrealQL identifier; must match [a-zA-Z_][a-zA-Z0-9_]*.",
+                paramName);
     }
 
     private static AccessToken ExtractToken(Value value) => value switch

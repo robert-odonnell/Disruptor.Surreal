@@ -106,3 +106,19 @@ internal sealed record VersionCommand : Command
     public override string Method => "version";
     public override Value? BuildParams() => null;
 }
+
+internal sealed record RunCommand(string Name, string? Version, IReadOnlyList<Value> Args) : Command
+{
+    public override string Method => "run";
+    public override Value BuildParams()
+    {
+        var argsArray = new SurrealArray(Args.Count);
+        foreach (var a in Args) argsArray.Add(a);
+        return new ArrayValue(new SurrealArray
+        {
+            Name,
+            Version is null ? Value.None : Version,
+            new ArrayValue(argsArray),
+        });
+    }
+}

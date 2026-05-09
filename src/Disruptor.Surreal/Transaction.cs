@@ -88,6 +88,123 @@ public sealed class Transaction : IAsyncDisposable
             new SurrealObject { ["_record_id"] = new RecordIdValue(id.ToRecordId()) }, Id, ct);
     }
 
+    /// <summary>Upsert a record by id inside this transaction.</summary>
+    public Task<Value> UpsertAsync(IRecordId id, SurrealObject content, CancellationToken ct = default)
+    {
+        EnsureLive();
+        var vars = new SurrealObject
+        {
+            ["_record_id"] = new RecordIdValue(id.ToRecordId()),
+            ["_content"] = new ObjectValue(content),
+        };
+        return _client.ResourceQueryAsync("UPSERT $_record_id CONTENT $_content", vars, Id, ct);
+    }
+
+    /// <summary>Merge fields into a record by id inside this transaction.</summary>
+    public Task<Value> MergeAsync(IRecordId id, SurrealObject content, CancellationToken ct = default)
+    {
+        EnsureLive();
+        var vars = new SurrealObject
+        {
+            ["_record_id"] = new RecordIdValue(id.ToRecordId()),
+            ["_content"] = new ObjectValue(content),
+        };
+        return _client.ResourceQueryAsync("UPDATE $_record_id MERGE $_content", vars, Id, ct);
+    }
+
+    /// <summary>Apply JSON-Patch operations to a record by id inside this transaction.</summary>
+    public Task<Value> PatchAsync(IRecordId id, IEnumerable<SurrealObject> patches, CancellationToken ct = default)
+    {
+        EnsureLive();
+        var arr = new SurrealArray();
+        foreach (var p in patches) arr.Add(new ObjectValue(p));
+        var vars = new SurrealObject
+        {
+            ["_record_id"] = new RecordIdValue(id.ToRecordId()),
+            ["_patches"] = new ArrayValue(arr),
+        };
+        return _client.ResourceQueryAsync("UPDATE $_record_id PATCH $_patches", vars, Id, ct);
+    }
+
+    /// <summary>Insert a single record into a table inside this transaction.</summary>
+    public Task<Value> InsertAsync(string table, SurrealObject content, CancellationToken ct = default)
+    {
+        EnsureLive();
+        var vars = new SurrealObject
+        {
+            ["_table"] = new TableValue(new Table(table)),
+            ["_content"] = new ObjectValue(content),
+        };
+        return _client.ResourceQueryAsync("INSERT INTO $_table $_content", vars, Id, ct);
+    }
+
+    /// <summary>Insert multiple records into a table inside this transaction.</summary>
+    public Task<Value> InsertAsync(string table, IEnumerable<SurrealObject> records, CancellationToken ct = default)
+    {
+        EnsureLive();
+        var arr = new SurrealArray();
+        foreach (var r in records) arr.Add(new ObjectValue(r));
+        var vars = new SurrealObject
+        {
+            ["_table"] = new TableValue(new Table(table)),
+            ["_records"] = new ArrayValue(arr),
+        };
+        return _client.ResourceQueryAsync("INSERT INTO $_table $_records", vars, Id, ct);
+    }
+
+    /// <summary>Insert one graph-edge record inside this transaction.</summary>
+    public Task<Value> InsertRelationAsync(string edgeTable, SurrealObject content, CancellationToken ct = default)
+    {
+        EnsureLive();
+        var vars = new SurrealObject
+        {
+            ["_table"] = new TableValue(new Table(edgeTable)),
+            ["_content"] = new ObjectValue(content),
+        };
+        return _client.ResourceQueryAsync("INSERT RELATION INTO $_table $_content", vars, Id, ct);
+    }
+
+    /// <summary>Insert multiple graph-edge records inside this transaction.</summary>
+    public Task<Value> InsertRelationAsync(string edgeTable, IEnumerable<SurrealObject> relations, CancellationToken ct = default)
+    {
+        EnsureLive();
+        var arr = new SurrealArray();
+        foreach (var r in relations) arr.Add(new ObjectValue(r));
+        var vars = new SurrealObject
+        {
+            ["_table"] = new TableValue(new Table(edgeTable)),
+            ["_records"] = new ArrayValue(arr),
+        };
+        return _client.ResourceQueryAsync("INSERT RELATION INTO $_table $_records", vars, Id, ct);
+    }
+
+    /// <summary>
+    /// Create a graph edge inside this transaction:
+    /// <c>RELATE source -&gt; edgeTable -&gt; target [CONTENT { ... }]</c>.
+    /// </summary>
+    public Task<Value> RelateAsync(
+        IRecordId source,
+        string edgeTable,
+        IRecordId target,
+        SurrealObject? content = null,
+        CancellationToken ct = default)
+    {
+        EnsureLive();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(edgeTable, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+            throw new ArgumentException(
+                $"'{edgeTable}' is not a valid SurrealQL identifier.", nameof(edgeTable));
+        var sql = content is null
+            ? $"RELATE $_source->{edgeTable}->$_target"
+            : $"RELATE $_source->{edgeTable}->$_target CONTENT $_content";
+        var vars = new SurrealObject
+        {
+            ["_source"] = new RecordIdValue(source.ToRecordId()),
+            ["_target"] = new RecordIdValue(target.ToRecordId()),
+        };
+        if (content is not null) vars["_content"] = new ObjectValue(content);
+        return _client.ResourceQueryAsync(sql, vars, Id, ct);
+    }
+
     /// <summary>Commit the transaction. Subsequent operations on this handle throw.</summary>
     public async Task CommitAsync(CancellationToken ct = default)
     {

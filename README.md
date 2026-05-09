@@ -126,13 +126,13 @@ permanently out of scope.)*
 | `create` (table or RecordId, with content) | yes  | **yes**           |
 | `update` (table or RecordId)               | yes  | **yes**           |
 | `delete` (table or RecordId)               | yes  | **yes**           |
-| `upsert`                                   | yes  | no                |
-| `merge`                                    | yes  | no                |
-| `patch` (JSON-Patch ops)                   | yes  | no                |
-| `insert`                                   | yes  | no                |
-| `insert_relation`                          | yes  | no                |
-| `relate` (graph edge)                      | yes  | no                |
-| `run` (server-side function)               | yes  | no                |
+| `upsert` (table or RecordId)               | yes  | **yes**           |
+| `merge` (table or RecordId)                | yes  | **yes**           |
+| `patch` (JSON-Patch ops)                   | yes  | **yes** — see `Patch.Add/Replace/Remove/Move/Copy/Test/Change` helpers |
+| `insert` (single or bulk)                  | yes  | **yes**           |
+| `insert_relation` (single or bulk edges)   | yes  | **yes**           |
+| `relate` (graph edge)                      | yes  | **yes**           |
+| `run` (server-side function, optional version) | yes | **yes**          |
 | `version` / `ping` (health)                | yes  | **yes**           |
 | `begin` / `commit` / `cancel` (txn id)     | yes  | **yes**           |
 | `live` / `kill` (live queries)             | yes  | no                |

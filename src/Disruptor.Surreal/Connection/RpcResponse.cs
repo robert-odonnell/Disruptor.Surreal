@@ -129,11 +129,11 @@ internal readonly record struct RpcErrorPayload(long Code, string Message, strin
 
         // Schema / integrity violations.
         if (ContainsAny(Message,
-            "already contains",          // UNIQUE
-            "violates assertion",         // ASSERT
+            "already exists",         // record-id collision on CREATE / INSERT
+            "already contains",       // UNIQUE index violation
+            "violates assertion",     // ASSERT clause
             "field validation",
-            "expected ",
-            "found "))
+            "found a "))              // canonical "expected X but found a Y"
         {
             return new SurrealConstraintException(Code, Message) { Kind = Kind };
         }

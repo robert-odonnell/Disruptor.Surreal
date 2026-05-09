@@ -2,56 +2,73 @@ using Disruptor.Surreal;
 using Disruptor.Surreal.Connection;
 using Disruptor.Surreal.Values;
 
-// One-shot connect: parse the connection string, dial WS, sign in, switch ns/db.
-var connStr = Environment.GetEnvironmentVariable("SURREAL_CONN")
-    ?? "Url=ws://localhost:8000;Namespace=test;Database=test;User=root;Password=root";
+await using var db = await Surreal.ConnectAsync(SurrealOptions.Parse(
+    "Url=ws://localhost:8000;Namespace=test;Database=test;User=root;Password=root"));
+Console.WriteLine($"Connected. Server: {await db.VersionAsync()}");
 
-await using var db = await Surreal.ConnectAsync(SurrealOptions.Parse(connStr));
-Console.WriteLine($"Connected and signed in. Server version: {await db.VersionAsync()}");
-
-var jaime = new RecordId("person", "jaime");
-
-// Create a record at a known id
-await db.CreateAsync(jaime, new SurrealObject
+// ─── insert (single + bulk) ───────────────────────────────────────────────
+var jaime = await db.InsertAsync("person", new SurrealObject
 {
+    ["id"] = new RecordIdValue(new RecordId("person", "jaime")),
     ["name"] = "Jaime",
     ["age"] = 30L,
-    ["admin"] = true,
-    ["joined"] = DateTimeOffset.UtcNow,
-    ["balance"] = 1234.56m,
 });
-Console.WriteLine($"Created {jaime}");
+Console.WriteLine($"Insert single: {jaime}");
 
-// Query with a binding
-var result = await db.QueryAsync(
-    "SELECT * FROM person WHERE age >= $minAge",
-    new SurrealObject { ["minAge"] = 21L });
-Console.WriteLine($"Query result: {result.Take(0)}");
+await db.InsertAsync("person",
+[
+    new SurrealObject { ["id"] = new RecordIdValue(new RecordId("person", "tobie")), ["name"] = "Tobie", ["age"] = 32L },
+    new SurrealObject { ["id"] = new RecordIdValue(new RecordId("person", "rebecca")), ["name"] = "Rebecca", ["age"] = 28L },
+]);
+Console.WriteLine($"Insert bulk: {await db.SelectAsync("person")}");
 
-// Transaction: update inside, cancel, observe rollback
-await using (var tx = await db.BeginTransactionAsync())
+// ─── upsert ───────────────────────────────────────────────────────────────
+await db.UpsertAsync(new RecordId("person", "ghost"), new SurrealObject
 {
-    await tx.UpdateAsync(jaime, new SurrealObject
+    ["name"] = "Ghost",
+    ["age"] = 99L,
+});
+Console.WriteLine($"Upsert created: {await db.SelectAsync(new RecordId("person", "ghost"))}");
+
+// ─── merge ────────────────────────────────────────────────────────────────
+await db.MergeAsync(new RecordId("person", "jaime"), new SurrealObject { ["title"] = "Founder" });
+Console.WriteLine($"Merge: {await db.SelectAsync(new RecordId("person", "jaime"))}");
+
+// ─── patch ────────────────────────────────────────────────────────────────
+await db.PatchAsync(new RecordId("person", "jaime"),
+[
+    Patch.Replace("/age", 31L),
+    Patch.Add("/email", "jaime@example.com"),
+]);
+Console.WriteLine($"Patch: {await db.SelectAsync(new RecordId("person", "jaime"))}");
+
+// ─── relate ───────────────────────────────────────────────────────────────
+await db.RelateAsync(
+    new RecordId("person", "jaime"),
+    "knows",
+    new RecordId("person", "tobie"),
+    new SurrealObject { ["since"] = "2020" });
+Console.WriteLine($"Relate: {(await db.QueryAsync("SELECT * FROM knows")).Take(0)}");
+
+// ─── insert_relation (bulk edges) ─────────────────────────────────────────
+await db.InsertRelationAsync("knows",
+[
+    new SurrealObject
     {
-        ["name"] = "Jaime (updated in tx)",
-        ["age"] = 31L,
-        ["admin"] = false,
-        ["joined"] = DateTimeOffset.UtcNow,
-        ["balance"] = 0m,
-    });
+        ["in"] = new RecordIdValue(new RecordId("person", "tobie")),
+        ["out"] = new RecordIdValue(new RecordId("person", "rebecca")),
+        ["since"] = "2021",
+    },
+]);
+Console.WriteLine($"All edges: {(await db.QueryAsync("SELECT * FROM knows")).Take(0)}");
 
-    Console.WriteLine($"Inside transaction {tx.Id} — about to cancel.");
-    await tx.CancelAsync();
-}
-
-var afterCancel = await db.SelectAsync(jaime);
-Console.WriteLine($"After cancel: {afterCancel}");
-
-// IRecordId — anything implementing it works through the API
-IRecordId asInterface = jaime;
-var alsoSelected = await db.SelectAsync(asInterface);
-Console.WriteLine($"Via IRecordId: {alsoSelected}");
+// ─── run (server-side function) ───────────────────────────────────────────
+await db.QueryAsync("DEFINE FUNCTION fn::greet($name: string) { RETURN 'hello, ' + $name }");
+var greet = await db.RunAsync("fn::greet", ["Jaime"]);
+Console.WriteLine($"Run fn::greet('Jaime') => {greet}");
 
 // Cleanup
-await db.DeleteAsync(jaime);
+await db.QueryAsync("REMOVE TABLE person");
+await db.QueryAsync("REMOVE TABLE knows");
+await db.QueryAsync("REMOVE FUNCTION fn::greet");
 Console.WriteLine("Cleaned up.");
