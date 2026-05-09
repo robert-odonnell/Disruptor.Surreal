@@ -186,7 +186,7 @@ permanently out of scope.)*
 |----------------------------------------------------|------|-------------------|
 | Typed exception hierarchy                          | yes  | **yes** (Auth / Conflict / TransactionAborted / Constraint / Connection / Protocol / Rpc) |
 | Token-expiry signal                                | yes  | **yes** (`SurrealAuthException.IsTokenExpired`) |
-| Retry-on-conflict helper                           | n/a  | no                |
+| Retry-on-conflict helper                           | n/a  | **yes** (`RetryPolicy.WithRetryAsync`) |
 
 ### Consumer-side mapping
 
