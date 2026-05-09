@@ -20,6 +20,7 @@ public enum ValueKind
     Table,
     Set,
     File,
+    Range,
 }
 
 /// <summary>
@@ -172,4 +173,11 @@ public sealed record FileValue(SurrealFile File) : Value
 {
     public override ValueKind Kind => ValueKind.File;
     public override string ToString() => File.ToString();
+}
+
+/// <summary>A range of values with inclusive / exclusive / open bounds.</summary>
+public sealed record RangeValue(SurrealRange Range) : Value
+{
+    public override ValueKind Kind => ValueKind.Range;
+    public override string ToString() => Range.ToString();
 }

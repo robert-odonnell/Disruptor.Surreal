@@ -164,7 +164,7 @@ permanently out of scope.)*
 | RecordId (string / int / uuid keys)    | 8        | yes  | **yes**           |
 | Array / Object                         | — / —    | yes  | **yes**           |
 | Set                                    | 56       | yes  | **yes** (`SurrealSet`, `SetValue`) |
-| Range / RecordIdKeyRange               | 49 / 50 / 51 | yes | no            |
+| Range / RecordIdKeyRange               | 49 / 50 / 51 | yes | **yes** (`SurrealRange`, `Bound<T>`, `RecordIdKeyRange`, `RangeRecordIdKey`) |
 | Geometry (Point/Line/Polygon/Multi*/Collection) | 88–94 | yes | no       |
 | File (bucket reference)                | 55       | yes  | **yes** (`SurrealFile`, `FileValue`) |
 | Regex                                  | —        | yes  | no                |

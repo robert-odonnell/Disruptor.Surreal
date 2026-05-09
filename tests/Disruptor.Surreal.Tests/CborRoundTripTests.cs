@@ -169,6 +169,59 @@ public class CborRoundTripTests
     }
 
     [Fact]
+    public void Range_FullyBounded_RoundTrips()
+    {
+        var range = new SurrealRange(
+            new Bound<Value>.Included(1L),
+            new Bound<Value>.Excluded(10L));
+        Value source = new RangeValue(range);
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
+    public void Range_Unbounded_RoundTrips()
+    {
+        Value source = new RangeValue(SurrealRange.Unbounded());
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
+    public void Range_HalfOpen_RoundTrips()
+    {
+        var range = new SurrealRange(
+            new Bound<Value>.Included(0L),
+            Bound<Value>.Unbounded.Instance);
+        Value source = new RangeValue(range);
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+    }
+
+    [Fact]
+    public void RecordId_WithRangeKey_RoundTrips()
+    {
+        // person:a..z — a range over string-keyed records on `person`.
+        var rangeKey = new RangeRecordIdKey(new RecordIdKeyRange(
+            new Bound<RecordIdKey>.Included(new StringRecordIdKey("a")),
+            new Bound<RecordIdKey>.Excluded(new StringRecordIdKey("z"))));
+        var rid = new RecordId(new Table("person"), rangeKey);
+        Value source = new RecordIdValue(rid);
+
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+        Assert.Equal(source, decoded);
+
+        var roundtripped = (RecordIdValue)decoded;
+        var roundtrippedRange = Assert.IsType<RangeRecordIdKey>(roundtripped.RecordId.Key);
+        Assert.IsType<Bound<RecordIdKey>.Included>(roundtrippedRange.Range.Start);
+        Assert.IsType<Bound<RecordIdKey>.Excluded>(roundtrippedRange.Range.End);
+    }
+
+    [Fact]
     public void File_RoundTrips()
     {
         Value source = new FileValue(new SurrealFile("avatars", "/users/jaime.png"));

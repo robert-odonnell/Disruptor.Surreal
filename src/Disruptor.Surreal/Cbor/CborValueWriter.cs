@@ -85,6 +85,10 @@ public static class CborValueWriter
                 WriteFile(writer, f.File);
                 break;
 
+            case RangeValue r:
+                WriteRange(writer, r.Range);
+                break;
+
             default:
                 throw new InvalidOperationException($"Unhandled Value variant: {value.Kind}");
         }
@@ -175,6 +179,64 @@ public static class CborValueWriter
         writer.WriteEndArray();
     }
 
+    private static void WriteRange(CborWriter writer, SurrealRange range)
+    {
+        writer.WriteTag(CborTags.Range.AsCborTag());
+        writer.WriteStartArray(2);
+        WriteBound(writer, range.Start);
+        WriteBound(writer, range.End);
+        writer.WriteEndArray();
+    }
+
+    private static void WriteBound(CborWriter writer, Bound<Value> bound)
+    {
+        switch (bound)
+        {
+            case Bound<Value>.Included i:
+                writer.WriteTag(CborTags.BoundIncluded.AsCborTag());
+                Write(writer, i.Value);
+                break;
+            case Bound<Value>.Excluded e:
+                writer.WriteTag(CborTags.BoundExcluded.AsCborTag());
+                Write(writer, e.Value);
+                break;
+            case Bound<Value>.Unbounded:
+                writer.WriteNull();
+                break;
+            default:
+                throw new InvalidOperationException($"Unhandled Bound<Value>: {bound}");
+        }
+    }
+
+    private static void WriteRecordIdKeyRange(CborWriter writer, RecordIdKeyRange range)
+    {
+        writer.WriteTag(CborTags.Range.AsCborTag());
+        writer.WriteStartArray(2);
+        WriteRecordIdKeyBound(writer, range.Start);
+        WriteRecordIdKeyBound(writer, range.End);
+        writer.WriteEndArray();
+    }
+
+    private static void WriteRecordIdKeyBound(CborWriter writer, Bound<RecordIdKey> bound)
+    {
+        switch (bound)
+        {
+            case Bound<RecordIdKey>.Included i:
+                writer.WriteTag(CborTags.BoundIncluded.AsCborTag());
+                WriteRecordIdKey(writer, i.Value);
+                break;
+            case Bound<RecordIdKey>.Excluded e:
+                writer.WriteTag(CborTags.BoundExcluded.AsCborTag());
+                WriteRecordIdKey(writer, e.Value);
+                break;
+            case Bound<RecordIdKey>.Unbounded:
+                writer.WriteNull();
+                break;
+            default:
+                throw new InvalidOperationException($"Unhandled Bound<RecordIdKey>: {bound}");
+        }
+    }
+
     private static void WriteObject(CborWriter writer, SurrealObject obj)
     {
         writer.WriteStartMap(obj.Count);
@@ -213,6 +275,9 @@ public static class CborValueWriter
                 break;
             case ObjectRecordIdKey o:
                 WriteObject(writer, o.Fields);
+                break;
+            case RangeRecordIdKey r:
+                WriteRecordIdKeyRange(writer, r.Range);
                 break;
             default:
                 throw new InvalidOperationException($"Unhandled RecordIdKey variant: {key.Kind}");

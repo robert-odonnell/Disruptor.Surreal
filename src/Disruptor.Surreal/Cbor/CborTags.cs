@@ -38,6 +38,15 @@ internal static class CborTags
     /// <summary>RFC 8949 §3.4.2 — UUID expressed as 16 raw bytes.</summary>
     public const ulong SpecUuid = 37;
 
+    /// <summary>Range; payload is a CBOR array <c>[start_bound, end_bound]</c>.</summary>
+    public const ulong Range = 49;
+
+    /// <summary>Inclusive range bound; payload is the bound value.</summary>
+    public const ulong BoundIncluded = 50;
+
+    /// <summary>Exclusive range bound; payload is the bound value.</summary>
+    public const ulong BoundExcluded = 51;
+
     /// <summary>File reference; payload is an array <c>[bucket, key]</c> of strings.</summary>
     public const ulong File = 55;
 

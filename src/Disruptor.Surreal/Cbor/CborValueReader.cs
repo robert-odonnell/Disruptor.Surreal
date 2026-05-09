@@ -97,6 +97,7 @@ public static class CborValueReader
             CborTags.CustomDuration => ReadCustomDuration(reader),
             CborTags.Set => ReadSet(reader),
             CborTags.File => ReadFile(reader),
+            CborTags.Range => new RangeValue(ReadRange(reader)),
             _ => throw new CborContentException($"Unrecognized SurrealDB CBOR tag: {tag}"),
         };
     }
@@ -180,7 +181,21 @@ public static class CborValueReader
         UuidValue u => new UuidRecordIdKey(u.Value),
         ArrayValue a => new ArrayRecordIdKey(a.Array),
         ObjectValue o => new ObjectRecordIdKey(o.Object),
+        // A Range value inside a RecordId key position is a RangeRecordIdKey.
+        // Re-walk the inner range so its bounds are typed as RecordIdKey, not Value.
+        RangeValue r => new RangeRecordIdKey(ConvertRangeToRecordIdKeyRange(r.Range)),
         _ => throw new CborContentException($"Unsupported RecordId key kind: {v.Kind}"),
+    };
+
+    private static RecordIdKeyRange ConvertRangeToRecordIdKeyRange(SurrealRange range) =>
+        new(ConvertBound(range.Start), ConvertBound(range.End));
+
+    private static Bound<RecordIdKey> ConvertBound(Bound<Value> bound) => bound switch
+    {
+        Bound<Value>.Included i => new Bound<RecordIdKey>.Included(ToRecordIdKey(i.Value)),
+        Bound<Value>.Excluded e => new Bound<RecordIdKey>.Excluded(ToRecordIdKey(e.Value)),
+        Bound<Value>.Unbounded => Bound<RecordIdKey>.Unbounded.Instance,
+        _ => throw new CborContentException($"Unhandled Bound: {bound}"),
     };
 
     private static Value ReadArray(CborReader reader)
@@ -212,6 +227,81 @@ public static class CborValueReader
         var key = reader.ReadTextString();
         reader.ReadEndArray();
         return new FileValue(new SurrealFile(bucket, key));
+    }
+
+    private static SurrealRange ReadRange(CborReader reader)
+    {
+        var len = reader.ReadStartArray();
+        if (len != 2)
+            throw new CborContentException($"Range payload must be an array of 2 bounds; got length {len}.");
+        var start = ReadBound(reader);
+        var end = ReadBound(reader);
+        reader.ReadEndArray();
+        return new SurrealRange(start, end);
+    }
+
+    private static Bound<Value> ReadBound(CborReader reader)
+    {
+        var state = reader.PeekState();
+        if (state == CborReaderState.Null)
+        {
+            reader.ReadNull();
+            return Bound<Value>.Unbounded.Instance;
+        }
+        if (state != CborReaderState.Tag)
+            throw new CborContentException($"Bound payload must be a tagged value or null; got {state}.");
+        var tag = (ulong)reader.PeekTag();
+        return tag switch
+        {
+            CborTags.BoundIncluded => Inner(reader, true),
+            CborTags.BoundExcluded => Inner(reader, false),
+            _ => throw new CborContentException($"Unexpected CBOR tag in Bound position: {tag}"),
+        };
+
+        static Bound<Value> Inner(CborReader reader, bool included)
+        {
+            reader.ReadTag();
+            var v = Read(reader);
+            return included ? new Bound<Value>.Included(v) : new Bound<Value>.Excluded(v);
+        }
+    }
+
+    private static RecordIdKeyRange ReadRecordIdKeyRange(CborReader reader)
+    {
+        var len = reader.ReadStartArray();
+        if (len != 2)
+            throw new CborContentException($"RecordIdKeyRange payload must be an array of 2 bounds; got length {len}.");
+        var start = ReadRecordIdKeyBound(reader);
+        var end = ReadRecordIdKeyBound(reader);
+        reader.ReadEndArray();
+        return new RecordIdKeyRange(start, end);
+    }
+
+    private static Bound<RecordIdKey> ReadRecordIdKeyBound(CborReader reader)
+    {
+        var state = reader.PeekState();
+        if (state == CborReaderState.Null)
+        {
+            reader.ReadNull();
+            return Bound<RecordIdKey>.Unbounded.Instance;
+        }
+        if (state != CborReaderState.Tag)
+            throw new CborContentException($"RecordIdKey bound must be tagged or null; got {state}.");
+        var tag = (ulong)reader.PeekTag();
+        return tag switch
+        {
+            CborTags.BoundIncluded => Inner(reader, true),
+            CborTags.BoundExcluded => Inner(reader, false),
+            _ => throw new CborContentException($"Unexpected CBOR tag in RecordIdKey-bound position: {tag}"),
+        };
+
+        static Bound<RecordIdKey> Inner(CborReader reader, bool included)
+        {
+            reader.ReadTag();
+            var v = Read(reader);
+            var key = ToRecordIdKey(v);
+            return included ? new Bound<RecordIdKey>.Included(key) : new Bound<RecordIdKey>.Excluded(key);
+        }
     }
 
     private static Value ReadObject(CborReader reader)

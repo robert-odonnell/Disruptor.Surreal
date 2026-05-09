@@ -10,6 +10,7 @@ public enum RecordIdKeyKind
     Array,
     Object,
     Uuid,
+    Range,
 }
 
 /// <summary>
@@ -61,4 +62,11 @@ public sealed record ObjectRecordIdKey(SurrealObject Fields) : RecordIdKey
 {
     public override RecordIdKeyKind Kind => RecordIdKeyKind.Object;
     public override string ToString() => Fields.ToString();
+}
+
+/// <summary>A range over record-id keys (e.g. <c>person:a..z</c>).</summary>
+public sealed record RangeRecordIdKey(RecordIdKeyRange Range) : RecordIdKey
+{
+    public override RecordIdKeyKind Kind => RecordIdKeyKind.Range;
+    public override string ToString() => Range.ToString() ?? "..";
 }
