@@ -1,4 +1,3 @@
-using Disruptor.Surreal;
 using Xunit;
 
 namespace Disruptor.Surreal.Tests;
@@ -9,7 +8,7 @@ public class RetryPolicyTests
     public async Task SucceedsOnFirstAttempt_NoRetry()
     {
         var attempts = 0;
-        var result = await RetryPolicy.WithRetryAsync<int>((n, _) =>
+        var result = await RetryPolicy.WithRetryAsync((_, _) =>
         {
             attempts++;
             return Task.FromResult(42);
@@ -38,7 +37,7 @@ public class RetryPolicyTests
     {
         var attempts = 0;
         await Assert.ThrowsAsync<SurrealConflictException>(() =>
-            RetryPolicy.WithRetryAsync<int>((n, _) =>
+            RetryPolicy.WithRetryAsync<int>((_, _) =>
             {
                 attempts++;
                 throw new SurrealConflictException(0, "transaction conflict");
@@ -51,7 +50,7 @@ public class RetryPolicyTests
     {
         var attempts = 0;
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            RetryPolicy.WithRetryAsync<int>((n, _) =>
+            RetryPolicy.WithRetryAsync<int>((_, _) =>
             {
                 attempts++;
                 throw new InvalidOperationException("not a conflict");

@@ -9,16 +9,16 @@ namespace Disruptor.Surreal.Auth;
 /// </remarks>
 public sealed class RefreshToken
 {
-    private readonly string _value;
+    private readonly string value;
 
     public RefreshToken(string value)
     {
         ArgumentException.ThrowIfNullOrEmpty(value);
-        _value = value;
+        this.value = value;
     }
 
     /// <summary>Returns the bearer string. Treat as a secret.</summary>
-    public string AsInsecureToken() => _value;
+    public string AsInsecureToken() => value;
 
     /// <summary>Returns a redacted placeholder. Use <see cref="AsInsecureToken"/> to access the value.</summary>
     public override string ToString() => "RefreshToken(REDACTED)";

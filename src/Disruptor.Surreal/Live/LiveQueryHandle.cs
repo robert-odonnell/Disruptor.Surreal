@@ -9,10 +9,10 @@ namespace Disruptor.Surreal;
 /// </summary>
 public sealed class LiveQueryHandle : IAsyncEnumerable<Notification>, IAsyncDisposable
 {
-    private readonly IConnection _connection;
-    private readonly ChannelReader<Notification> _reader;
-    private readonly DroppedCounter _dropped;
-    private int _settled;
+    private readonly IConnection connection;
+    private readonly ChannelReader<Notification> reader;
+    private readonly DroppedCounter dropped;
+    private int settled;
 
     /// <summary>The live-query id assigned by the server.</summary>
     public Guid Id { get; }
@@ -22,7 +22,7 @@ public sealed class LiveQueryHandle : IAsyncEnumerable<Notification>, IAsyncDisp
     /// fell behind. Only non-zero with <see cref="BoundedChannelFullMode.DropNewest"/>
     /// or <see cref="BoundedChannelFullMode.DropOldest"/>.
     /// </summary>
-    public long DroppedCount => _dropped.Value;
+    public long DroppedCount => dropped.Value;
 
     internal LiveQueryHandle(
         IConnection connection,
@@ -30,15 +30,15 @@ public sealed class LiveQueryHandle : IAsyncEnumerable<Notification>, IAsyncDisp
         ChannelReader<Notification> reader,
         DroppedCounter dropped)
     {
-        _connection = connection;
+        this.connection = connection;
         Id = id;
-        _reader = reader;
-        _dropped = dropped;
+        this.reader = reader;
+        this.dropped = dropped;
     }
 
     /// <inheritdoc />
     public IAsyncEnumerator<Notification> GetAsyncEnumerator(CancellationToken ct = default)
-        => _reader.ReadAllAsync(ct).GetAsyncEnumerator(ct);
+        => reader.ReadAllAsync(ct).GetAsyncEnumerator(ct);
 
     /// <summary>
     /// Stop the subscription: deregister locally and send a best-effort <c>kill</c>
@@ -46,15 +46,15 @@ public sealed class LiveQueryHandle : IAsyncEnumerable<Notification>, IAsyncDisp
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _settled, 1) != 0) return;
+        if (Interlocked.Exchange(ref settled, 1) != 0) return;
 
-        _connection.UnregisterLiveSubscription(Id);
+        connection.UnregisterLiveSubscription(Id);
 
-        if (_connection.IsConnected)
+        if (connection.IsConnected)
         {
             try
             {
-                await _connection.SendAsync(new KillCommand(Id), CancellationToken.None)
+                await connection.SendAsync(new KillCommand(Id), CancellationToken.None)
                     .ConfigureAwait(false);
             }
             catch
@@ -72,9 +72,9 @@ public sealed class LiveQueryHandle : IAsyncEnumerable<Notification>, IAsyncDisp
 /// </summary>
 internal sealed class DroppedCounter
 {
-    private long _value;
-    public long Value => Interlocked.Read(ref _value);
-    public void Increment() => Interlocked.Increment(ref _value);
+    private long value;
+    public long Value => Interlocked.Read(ref value);
+    public void Increment() => Interlocked.Increment(ref value);
 }
 
 /// <summary>
@@ -82,44 +82,33 @@ internal sealed class DroppedCounter
 /// policy ourselves over a Wait-mode inner channel, so we can observe and count drops
 /// (which the BCL's bounded-channel modes don't expose externally).
 /// </summary>
-internal sealed class DroppedCountingChannelWriter : ChannelWriter<Notification>
+internal sealed class DroppedCountingChannelWriter(
+    Channel<Notification> inner,
+    DroppedCounter dropped,
+    BoundedChannelFullMode policy) : ChannelWriter<Notification>
 {
-    private readonly Channel<Notification> _inner;
-    private readonly DroppedCounter _dropped;
-    private readonly BoundedChannelFullMode _policy;
-
-    public DroppedCountingChannelWriter(
-        Channel<Notification> inner,
-        DroppedCounter dropped,
-        BoundedChannelFullMode policy)
-    {
-        _inner = inner;
-        _dropped = dropped;
-        _policy = policy;
-    }
-
     public override bool TryWrite(Notification item)
     {
-        if (_inner.Writer.TryWrite(item)) return true;
+        if (inner.Writer.TryWrite(item)) return true;
 
         // Inner channel is full.
-        switch (_policy)
+        switch (policy)
         {
             case BoundedChannelFullMode.DropNewest:
-                _dropped.Increment();
+                dropped.Increment();
                 return true;
 
             case BoundedChannelFullMode.DropOldest:
-                while (_inner.Reader.TryRead(out _))
+                while (inner.Reader.TryRead(out _))
                 {
-                    _dropped.Increment();
-                    if (_inner.Writer.TryWrite(item)) return true;
+                    dropped.Increment();
+                    if (inner.Writer.TryWrite(item)) return true;
                 }
-                _dropped.Increment();
+                dropped.Increment();
                 return true;
 
             case BoundedChannelFullMode.DropWrite:
-                _dropped.Increment();
+                dropped.Increment();
                 return true;
 
             case BoundedChannelFullMode.Wait:
@@ -136,11 +125,11 @@ internal sealed class DroppedCountingChannelWriter : ChannelWriter<Notification>
         // Wait policy + full channel: actually wait for space. Note this stalls
         // the connection's receive loop while it's blocked here — the documented
         // foot-gun of choosing Wait on a shared connection.
-        await _inner.Writer.WriteAsync(item, ct).ConfigureAwait(false);
+        await inner.Writer.WriteAsync(item, ct).ConfigureAwait(false);
     }
 
-    public override bool TryComplete(Exception? error = null) => _inner.Writer.TryComplete(error);
+    public override bool TryComplete(Exception? error = null) => inner.Writer.TryComplete(error);
 
     public override ValueTask<bool> WaitToWriteAsync(CancellationToken ct = default) =>
-        _inner.Writer.WaitToWriteAsync(ct);
+        inner.Writer.WaitToWriteAsync(ct);
 }

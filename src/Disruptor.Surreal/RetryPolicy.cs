@@ -57,7 +57,7 @@ public static class RetryPolicy
         TimeSpan? initialBackoff = null,
         CancellationToken ct = default)
     {
-        await WithRetryAsync<int>(async (attempt, innerCt) =>
+        await WithRetryAsync(async (attempt, innerCt) =>
         {
             await action(attempt, innerCt).ConfigureAwait(false);
             return 0;

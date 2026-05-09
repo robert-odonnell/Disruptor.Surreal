@@ -1,5 +1,4 @@
 using System.Threading.Channels;
-using Disruptor.Surreal;
 using Disruptor.Surreal.Connection;
 using Disruptor.Surreal.Values;
 using Xunit;
@@ -26,7 +25,7 @@ public class NotificationParseTests
 
         var n = WebSocketConnection.TryParseNotification(value);
         Assert.NotNull(n);
-        Assert.Equal(liveId, n!.LiveQueryId);
+        Assert.Equal(liveId, n.LiveQueryId);
         Assert.Equal(expected, n.Action);
         Assert.IsType<RecordIdValue>(n.Record);
         Assert.IsType<ObjectValue>(n.Result);
@@ -54,7 +53,7 @@ public class NotificationParseTests
             ["action"] = "CREATE",
         }));
         Assert.NotNull(n);
-        Assert.Same(Value.None, n!.Record);
+        Assert.Same(Value.None, n.Record);
         Assert.Same(Value.None, n.Result);
     }
 }

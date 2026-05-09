@@ -14,21 +14,21 @@ internal sealed class WebSocketConnection : IConnection
 {
     private const string CborSubprotocol = "cbor";
 
-    private readonly ClientWebSocket _socket;
-    private readonly Endpoint _endpoint;
-    private readonly Channel<RpcRequest> _outbound;
-    private readonly ConcurrentDictionary<long, TaskCompletionSource<RpcResponse>> _pending = new();
-    private readonly ConcurrentDictionary<Guid, ChannelWriter<Notification>> _liveSubscriptions = new();
-    private readonly CancellationTokenSource _shutdown = new();
-    private readonly SemaphoreSlim _sendLock = new(1, 1);
+    private readonly ClientWebSocket socket;
+    private readonly Endpoint endpoint;
+    private readonly Channel<RpcRequest> outbound;
+    private readonly ConcurrentDictionary<long, TaskCompletionSource<RpcResponse>> pending = new();
+    private readonly ConcurrentDictionary<Guid, ChannelWriter<Notification>> liveSubscriptions = new();
+    private readonly CancellationTokenSource shutdown = new();
+    private readonly SemaphoreSlim sendLock = new(1, 1);
 
-    private long _nextId;
-    private Task? _sendLoop;
-    private Task? _receiveLoop;
-    private Task? _pingLoop;
-    private int _connected;
-    private readonly SemaphoreSlim _reauthGate = new(1, 1);
-    private long _reauthEpoch;
+    private long nextId;
+    private Task? sendLoop;
+    private Task? receiveLoop;
+    private Task? pingLoop;
+    private int connected;
+    private readonly SemaphoreSlim reauthGate = new(1, 1);
+    private long reauthEpoch;
 
     /// <summary>
     /// Caller-installed re-auth callback. When a request fails with a token-expired
@@ -40,22 +40,22 @@ internal sealed class WebSocketConnection : IConnection
 
     public void RegisterLiveSubscription(Guid liveQueryId, ChannelWriter<Notification> writer)
     {
-        if (!_liveSubscriptions.TryAdd(liveQueryId, writer))
+        if (!liveSubscriptions.TryAdd(liveQueryId, writer))
             throw new InvalidOperationException(
                 $"Live subscription for {liveQueryId} is already registered.");
     }
 
     public void UnregisterLiveSubscription(Guid liveQueryId)
     {
-        if (_liveSubscriptions.TryRemove(liveQueryId, out var writer))
+        if (liveSubscriptions.TryRemove(liveQueryId, out var writer))
             writer.TryComplete();
     }
 
     private WebSocketConnection(ClientWebSocket socket, Endpoint endpoint)
     {
-        _socket = socket;
-        _endpoint = endpoint;
-        _outbound = Channel.CreateBounded<RpcRequest>(
+        this.socket = socket;
+        this.endpoint = endpoint;
+        outbound = Channel.CreateBounded<RpcRequest>(
             new BoundedChannelOptions(capacity: 1024)
             {
                 SingleReader = true,
@@ -63,8 +63,8 @@ internal sealed class WebSocketConnection : IConnection
             });
     }
 
-    public bool IsConnected => Volatile.Read(ref _connected) == 1
-        && _socket.State == WebSocketState.Open;
+    public bool IsConnected => Volatile.Read(ref connected) == 1
+        && socket.State == WebSocketState.Open;
 
     public static async Task<WebSocketConnection> ConnectAsync(Endpoint endpoint, CancellationToken ct)
     {
@@ -92,17 +92,17 @@ internal sealed class WebSocketConnection : IConnection
         }
 
         var conn = new WebSocketConnection(socket, endpoint);
-        Volatile.Write(ref conn._connected, 1);
-        conn._sendLoop = Task.Run(conn.SendLoopAsync);
-        conn._receiveLoop = Task.Run(conn.ReceiveLoopAsync);
-        conn._pingLoop = Task.Run(conn.PingLoopAsync);
+        Volatile.Write(ref conn.connected, 1);
+        conn.sendLoop = Task.Run(conn.SendLoopAsync, ct);
+        conn.receiveLoop = Task.Run(conn.ReceiveLoopAsync, ct);
+        conn.pingLoop = Task.Run(conn.PingLoopAsync, ct);
         return conn;
     }
 
     public async Task<Value> SendAsync(string method, Value? @params, Guid? txnId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
-        var epochAtStart = Volatile.Read(ref _reauthEpoch);
+        var epochAtStart = Volatile.Read(ref reauthEpoch);
         try
         {
             return await SendOnceAsync(method, @params, txnId, ct).ConfigureAwait(false);
@@ -121,21 +121,21 @@ internal sealed class WebSocketConnection : IConnection
         if (!IsConnected)
             throw new SurrealConnectionException("WebSocket is not connected.");
 
-        var id = Interlocked.Increment(ref _nextId);
+        var id = Interlocked.Increment(ref nextId);
         var request = new RpcRequest(id, method, @params, txnId);
 
         var tcs = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (!_pending.TryAdd(id, tcs))
+        if (!pending.TryAdd(id, tcs))
             throw new InvalidOperationException($"Request id {id} already pending — overflow?");
 
         try
         {
-            await _outbound.Writer.WriteAsync(request, ct).ConfigureAwait(false);
+            await outbound.Writer.WriteAsync(request, ct).ConfigureAwait(false);
 
-            using var timeout = new CancellationTokenSource(_endpoint.Config.RequestTimeout);
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token, _shutdown.Token);
+            using var timeout = new CancellationTokenSource(endpoint.Config.RequestTimeout);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token, shutdown.Token);
 
-            using var registration = linked.Token.Register(static state =>
+            await using var registration = linked.Token.Register(static state =>
             {
                 var (tcs, token) = ((TaskCompletionSource<RpcResponse>, CancellationToken))state!;
                 tcs.TrySetCanceled(token);
@@ -150,24 +150,24 @@ internal sealed class WebSocketConnection : IConnection
         }
         finally
         {
-            _pending.TryRemove(id, out _);
+            pending.TryRemove(id, out _);
         }
     }
 
     private async Task ReauthAsync(long epochAtStart, CancellationToken ct)
     {
-        await _reauthGate.WaitAsync(ct).ConfigureAwait(false);
+        await reauthGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             // Coalesce: if another waiter already advanced the epoch, the re-auth happened.
-            if (Volatile.Read(ref _reauthEpoch) != epochAtStart) return;
+            if (Volatile.Read(ref reauthEpoch) != epochAtStart) return;
             if (ReauthHandler is { } handler)
                 await handler(ct).ConfigureAwait(false);
-            Interlocked.Increment(ref _reauthEpoch);
+            Interlocked.Increment(ref reauthEpoch);
         }
         finally
         {
-            _reauthGate.Release();
+            reauthGate.Release();
         }
     }
 
@@ -175,21 +175,21 @@ internal sealed class WebSocketConnection : IConnection
     {
         try
         {
-            await foreach (var request in _outbound.Reader.ReadAllAsync(_shutdown.Token).ConfigureAwait(false))
+            await foreach (var request in outbound.Reader.ReadAllAsync(shutdown.Token).ConfigureAwait(false))
             {
                 var bytes = request.Encode();
-                await _sendLock.WaitAsync(_shutdown.Token).ConfigureAwait(false);
+                await sendLock.WaitAsync(shutdown.Token).ConfigureAwait(false);
                 try
                 {
-                    await _socket.SendAsync(
+                    await socket.SendAsync(
                         bytes.AsMemory(),
                         WebSocketMessageType.Binary,
                         endOfMessage: true,
-                        _shutdown.Token).ConfigureAwait(false);
+                        shutdown.Token).ConfigureAwait(false);
                 }
                 finally
                 {
-                    _sendLock.Release();
+                    sendLock.Release();
                 }
             }
         }
@@ -205,16 +205,16 @@ internal sealed class WebSocketConnection : IConnection
         var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
         try
         {
-            while (!_shutdown.IsCancellationRequested && _socket.State == WebSocketState.Open)
+            while (!shutdown.IsCancellationRequested && socket.State == WebSocketState.Open)
             {
                 using var ms = new MemoryStream();
                 WebSocketReceiveResult result;
                 do
                 {
-                    result = await _socket.ReceiveAsync(buffer, _shutdown.Token).ConfigureAwait(false);
+                    result = await socket.ReceiveAsync(buffer, shutdown.Token).ConfigureAwait(false);
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        await _socket.CloseOutputAsync(
+                        await socket.CloseOutputAsync(
                             WebSocketCloseStatus.NormalClosure, null, CancellationToken.None)
                             .ConfigureAwait(false);
                         FailAllPending(new SurrealConnectionException("Server closed the connection."));
@@ -226,10 +226,10 @@ internal sealed class WebSocketConnection : IConnection
                 if (result.MessageType != WebSocketMessageType.Binary)
                     continue; // ignore unexpected text frames
 
-                if (ms.Length > _endpoint.Config.MaxMessageSize)
+                if (ms.Length > endpoint.Config.MaxMessageSize)
                 {
                     FailAllPending(new SurrealConnectionException(
-                        $"Inbound message exceeded MaxMessageSize ({ms.Length} > {_endpoint.Config.MaxMessageSize})."));
+                        $"Inbound message exceeded MaxMessageSize ({ms.Length} > {endpoint.Config.MaxMessageSize})."));
                     return;
                 }
 
@@ -244,7 +244,7 @@ internal sealed class WebSocketConnection : IConnection
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
-            Volatile.Write(ref _connected, 0);
+            Volatile.Write(ref connected, 0);
         }
     }
 
@@ -259,8 +259,8 @@ internal sealed class WebSocketConnection : IConnection
         {
             // We can't route a malformed message, but it shouldn't tear down the loop.
             // Fail the oldest pending request as a best-effort signal.
-            var pending = _pending.Values.FirstOrDefault();
-            pending?.TrySetException(new SurrealProtocolException("Malformed RPC response.", ex));
+            var firstPending = pending.Values.FirstOrDefault();
+            firstPending?.TrySetException(new SurrealProtocolException("Malformed RPC response.", ex));
             return;
         }
 
@@ -271,14 +271,14 @@ internal sealed class WebSocketConnection : IConnection
             return;
         }
 
-        if (_pending.TryRemove(id, out var tcs))
+        if (pending.TryRemove(id, out var tcs))
             tcs.TrySetResult(response);
     }
 
     private void DispatchLiveNotification(RpcResponse response)
     {
         if (TryParseNotification(response.Result) is not { } notification) return;
-        if (!_liveSubscriptions.TryGetValue(notification.LiveQueryId, out var writer)) return;
+        if (!liveSubscriptions.TryGetValue(notification.LiveQueryId, out var writer)) return;
         // Channel was created with the consumer-chosen FullMode — TryWrite reflects that
         // policy (DropNewest returns true after dropping; Wait blocks; etc.).
         writer.TryWrite(notification);
@@ -314,17 +314,17 @@ internal sealed class WebSocketConnection : IConnection
 
     private async Task PingLoopAsync()
     {
-        var interval = _endpoint.Config.PingInterval;
+        var interval = endpoint.Config.PingInterval;
         if (interval <= TimeSpan.Zero) return;
         try
         {
             using var timer = new PeriodicTimer(interval);
-            while (await timer.WaitForNextTickAsync(_shutdown.Token).ConfigureAwait(false))
+            while (await timer.WaitForNextTickAsync(shutdown.Token).ConfigureAwait(false))
             {
                 if (!IsConnected) return;
                 try
                 {
-                    await ((IConnection)this).SendAsync(new HealthCommand(), _shutdown.Token).ConfigureAwait(false);
+                    await this.SendAsync(new HealthCommand(), shutdown.Token).ConfigureAwait(false);
                 }
                 catch
                 {
@@ -337,41 +337,41 @@ internal sealed class WebSocketConnection : IConnection
 
     private void FailAllPending(Exception ex)
     {
-        Volatile.Write(ref _connected, 0);
-        foreach (var (id, tcs) in _pending.ToArray())
+        Volatile.Write(ref connected, 0);
+        foreach (var (id, tcs) in pending.ToArray())
         {
-            if (_pending.TryRemove(id, out _))
+            if (pending.TryRemove(id, out _))
                 tcs.TrySetException(ex);
         }
         // Complete every live subscription with the same exception so consumers'
         // `await foreach` terminates loudly rather than hanging forever.
-        foreach (var (id, writer) in _liveSubscriptions.ToArray())
+        foreach (var (id, writer) in liveSubscriptions.ToArray())
         {
-            if (_liveSubscriptions.TryRemove(id, out _))
+            if (liveSubscriptions.TryRemove(id, out _))
                 writer.TryComplete(ex);
         }
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _connected, 0) == 0 && _sendLoop is null)
+        if (Interlocked.Exchange(ref connected, 0) == 0 && sendLoop is null)
             return;
 
-        _outbound.Writer.TryComplete();
-        _shutdown.Cancel();
+        outbound.Writer.TryComplete();
+        await shutdown.CancelAsync();
 
-        if (_socket.State == WebSocketState.Open)
+        if (socket.State == WebSocketState.Open)
         {
             try
             {
-                await _socket.CloseAsync(
+                await socket.CloseAsync(
                     WebSocketCloseStatus.NormalClosure, null, CancellationToken.None)
                     .ConfigureAwait(false);
             }
             catch { /* swallow */ }
         }
 
-        var loops = new[] { _sendLoop, _receiveLoop, _pingLoop }
+        var loops = new[] { sendLoop, receiveLoop, pingLoop }
             .Where(t => t is not null)
             .Cast<Task>()
             .ToArray();
@@ -383,8 +383,8 @@ internal sealed class WebSocketConnection : IConnection
 
         FailAllPending(new SurrealConnectionException("Connection disposed."));
 
-        _socket.Dispose();
-        _shutdown.Dispose();
-        _sendLock.Dispose();
+        socket.Dispose();
+        shutdown.Dispose();
+        sendLock.Dispose();
     }
 }

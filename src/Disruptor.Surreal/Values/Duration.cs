@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace Disruptor.Surreal.Values;
 
 /// <summary>

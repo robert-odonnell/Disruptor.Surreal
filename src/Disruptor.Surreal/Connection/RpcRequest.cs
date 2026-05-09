@@ -8,20 +8,12 @@ namespace Disruptor.Surreal.Connection;
 /// The wire-level request envelope. Encoded as a CBOR map matching the shape consumed
 /// by the official server: <c>{ id, method, params?, txn? }</c>.
 /// </summary>
-internal readonly struct RpcRequest
+internal readonly struct RpcRequest(long id, string method, Value? @params, Guid? txnId)
 {
-    public long Id { get; }
-    public string Method { get; }
-    public Value? Params { get; }
-    public Guid? TxnId { get; }
-
-    public RpcRequest(long id, string method, Value? @params, Guid? txnId)
-    {
-        Id = id;
-        Method = method;
-        Params = @params;
-        TxnId = txnId;
-    }
+    public long Id { get; } = id;
+    public string Method { get; } = method;
+    public Value? Params { get; } = @params;
+    public Guid? TxnId { get; } = txnId;
 
     /// <summary>Encodes this request to a CBOR byte array.</summary>
     public byte[] Encode()

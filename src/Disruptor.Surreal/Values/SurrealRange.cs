@@ -13,7 +13,7 @@ public sealed record SurrealRange(Bound<Value> Start, Bound<Value> End)
 {
     /// <summary>A range with no bounds at either end (<c>..</c>).</summary>
     public static SurrealRange Unbounded() =>
-        new(Values.Bound.Unbounded<Value>(), Values.Bound.Unbounded<Value>());
+        new(Bound.Unbounded<Value>(), Bound.Unbounded<Value>());
 
     public override string ToString()
     {
@@ -41,5 +41,5 @@ public sealed record RecordIdKeyRange(Bound<RecordIdKey> Start, Bound<RecordIdKe
 {
     /// <summary>A range with no bounds at either end.</summary>
     public static RecordIdKeyRange Unbounded() =>
-        new(Values.Bound.Unbounded<RecordIdKey>(), Values.Bound.Unbounded<RecordIdKey>());
+        new(Bound.Unbounded<RecordIdKey>(), Bound.Unbounded<RecordIdKey>());
 }

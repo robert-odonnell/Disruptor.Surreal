@@ -292,9 +292,7 @@ public static class CborValueReader
         reader.ReadStartArray();
         var pts = new List<Geometry.Point>();
         while (reader.PeekState() != CborReaderState.EndArray)
-            pts.Add(ReadInnerGeometry(reader) is Geometry.Point p
-                ? p
-                : throw new CborContentException("Geometry Line elements must be Points."));
+            pts.Add(ReadInnerGeometry(reader) as Geometry.Point ?? throw new CborContentException("Geometry Line elements must be Points."));
         reader.ReadEndArray();
         return new Geometry.Line(pts);
     }
@@ -304,9 +302,7 @@ public static class CborValueReader
         reader.ReadStartArray();
         var lines = new List<Geometry.Line>();
         while (reader.PeekState() != CborReaderState.EndArray)
-            lines.Add(ReadInnerGeometry(reader) is Geometry.Line l
-                ? l
-                : throw new CborContentException("Geometry Polygon elements must be Lines."));
+            lines.Add(ReadInnerGeometry(reader) as Geometry.Line ?? throw new CborContentException("Geometry Polygon elements must be Lines."));
         reader.ReadEndArray();
         if (lines.Count == 0)
             throw new CborContentException("Geometry Polygon must have at least an exterior ring.");
@@ -318,9 +314,7 @@ public static class CborValueReader
         reader.ReadStartArray();
         var pts = new List<Geometry.Point>();
         while (reader.PeekState() != CborReaderState.EndArray)
-            pts.Add(ReadInnerGeometry(reader) is Geometry.Point p
-                ? p
-                : throw new CborContentException("MultiPoint elements must be Points."));
+            pts.Add(ReadInnerGeometry(reader) as Geometry.Point ?? throw new CborContentException("MultiPoint elements must be Points."));
         reader.ReadEndArray();
         return new Geometry.MultiPoint(pts);
     }
@@ -330,9 +324,7 @@ public static class CborValueReader
         reader.ReadStartArray();
         var lines = new List<Geometry.Line>();
         while (reader.PeekState() != CborReaderState.EndArray)
-            lines.Add(ReadInnerGeometry(reader) is Geometry.Line l
-                ? l
-                : throw new CborContentException("MultiLine elements must be Lines."));
+            lines.Add(ReadInnerGeometry(reader) as Geometry.Line ?? throw new CborContentException("MultiLine elements must be Lines."));
         reader.ReadEndArray();
         return new Geometry.MultiLine(lines);
     }
@@ -342,9 +334,7 @@ public static class CborValueReader
         reader.ReadStartArray();
         var polys = new List<Geometry.Polygon>();
         while (reader.PeekState() != CborReaderState.EndArray)
-            polys.Add(ReadInnerGeometry(reader) is Geometry.Polygon p
-                ? p
-                : throw new CborContentException("MultiPolygon elements must be Polygons."));
+            polys.Add(ReadInnerGeometry(reader) as Geometry.Polygon ?? throw new CborContentException("MultiPolygon elements must be Polygons."));
         reader.ReadEndArray();
         return new Geometry.MultiPolygon(polys);
     }

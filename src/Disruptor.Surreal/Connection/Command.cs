@@ -23,35 +23,36 @@ internal abstract record Command
 internal sealed record UseCommand(string? Namespace, string? Database) : Command
 {
     public override string Method => "use";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray
-    {
-        Namespace is null ? Value.None : Namespace,
-        Database is null ? Value.None : Database,
-    });
+    public override Value BuildParams() => new ArrayValue(
+        [
+            Namespace is null ? Value.None : Namespace,
+            Database is null ? Value.None : Database
+        ]
+    );
 }
 
 internal sealed record SigninCommand(SurrealObject Credentials) : Command
 {
     public override string Method => "signin";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { new ObjectValue(Credentials) });
+    public override Value BuildParams() => new ArrayValue([new ObjectValue(Credentials)]);
 }
 
 internal sealed record SignupCommand(SurrealObject Credentials) : Command
 {
     public override string Method => "signup";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { new ObjectValue(Credentials) });
+    public override Value BuildParams() => new ArrayValue([new ObjectValue(Credentials)]);
 }
 
 internal sealed record AuthenticateCommand(string Token) : Command
 {
     public override string Method => "authenticate";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { Token });
+    public override Value BuildParams() => new ArrayValue([Token]);
 }
 
 internal sealed record RefreshCommand(Auth.Token Token) : Command
 {
     public override string Method => "refresh";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { Token.ToValue() });
+    public override Value BuildParams() => new ArrayValue([Token.ToValue()]);
 }
 
 internal sealed record InvalidateCommand : Command
@@ -63,24 +64,30 @@ internal sealed record InvalidateCommand : Command
 internal sealed record SetCommand(string Key, Value VarValue) : Command
 {
     public override string Method => "let";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { Key, VarValue });
+    public override Value BuildParams() => new ArrayValue(
+        [
+            Key,
+            VarValue
+        ]
+    );
 }
 
 internal sealed record UnsetCommand(string Key) : Command
 {
     public override string Method => "unset";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { Key });
+    public override Value BuildParams() => new ArrayValue([Key]);
 }
 
 internal sealed record QueryCommand(string Sql, SurrealObject? Variables, Guid? Txn) : Command
 {
     public override string Method => "query";
     public override Guid? TxnId => Txn;
-    public override Value BuildParams() => new ArrayValue(new SurrealArray
-    {
-        Sql,
-        new ObjectValue(Variables ?? new SurrealObject()),
-    });
+    public override Value BuildParams() => new ArrayValue(
+        [
+            Sql,
+            new ObjectValue(Variables ?? new SurrealObject())
+        ]
+    );
 }
 
 internal sealed record BeginCommand : Command
@@ -92,13 +99,13 @@ internal sealed record BeginCommand : Command
 internal sealed record CommitCommand(Guid Txn) : Command
 {
     public override string Method => "commit";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { Txn });
+    public override Value BuildParams() => new ArrayValue([Txn]);
 }
 
 internal sealed record CancelCommand(Guid Txn) : Command
 {
     public override string Method => "cancel";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { Txn });
+    public override Value BuildParams() => new ArrayValue([Txn]);
 }
 
 internal sealed record HealthCommand : Command
@@ -120,19 +127,20 @@ internal sealed record RunCommand(string Name, string? Version, IReadOnlyList<Va
     {
         var argsArray = new SurrealArray(Args.Count);
         foreach (var a in Args) argsArray.Add(a);
-        return new ArrayValue(new SurrealArray
-        {
-            Name,
-            Version is null ? Value.None : Version,
-            new ArrayValue(argsArray),
-        });
+        return new ArrayValue(
+            [
+                Name,
+                Version is null ? Value.None : Version,
+                new ArrayValue(argsArray)
+            ]
+        );
     }
 }
 
 internal sealed record KillCommand(Guid LiveQueryId) : Command
 {
     public override string Method => "kill";
-    public override Value BuildParams() => new ArrayValue(new SurrealArray { LiveQueryId });
+    public override Value BuildParams() => new ArrayValue([LiveQueryId]);
 }
 
 /// <summary>

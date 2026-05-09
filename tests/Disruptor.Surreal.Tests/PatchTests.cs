@@ -1,4 +1,3 @@
-using Disruptor.Surreal;
 using Disruptor.Surreal.Values;
 using Xunit;
 

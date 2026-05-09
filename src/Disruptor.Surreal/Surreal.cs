@@ -11,7 +11,7 @@ namespace Disruptor.Surreal;
 /// </summary>
 public sealed class Surreal : IAsyncDisposable
 {
-    private readonly IConnection _connection;
+    private readonly IConnection connection;
 
     /// <summary>
     /// Create a client around a caller-supplied <see cref="IConnection"/>. The intended
@@ -20,7 +20,7 @@ public sealed class Surreal : IAsyncDisposable
     /// <see cref="ConnectAsync(string, ConnectionConfig?, CancellationToken)"/>.
     /// </summary>
     public Surreal(IConnection connection) =>
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+        this.connection = connection ?? throw new ArgumentNullException(nameof(connection));
 
     /// <summary>Opens a WebSocket connection to <paramref name="url"/> and returns a connected client.</summary>
     /// <remarks>
@@ -110,7 +110,7 @@ public sealed class Surreal : IAsyncDisposable
     /// <summary>Switch the namespace and/or database for the current session.</summary>
     public async Task UseAsync(string? @namespace, string? database, CancellationToken ct = default)
     {
-        await _connection.SendAsync(new UseCommand(@namespace, database), ct).ConfigureAwait(false);
+        await connection.SendAsync(new UseCommand(@namespace, database), ct).ConfigureAwait(false);
     }
 
     /// <summary>Switch the namespace for the current session.</summary>
@@ -144,7 +144,7 @@ public sealed class Surreal : IAsyncDisposable
     /// </remarks>
     public async Task<Token> SigninAsync(ICredentials credentials, CancellationToken ct = default)
     {
-        var response = await _connection
+        var response = await connection
             .SendAsync(new SigninCommand(credentials.ToObject()), ct)
             .ConfigureAwait(false);
 
@@ -161,7 +161,7 @@ public sealed class Surreal : IAsyncDisposable
     /// </summary>
     public async Task<Token> SignupAsync(ICredentials credentials, CancellationToken ct = default)
     {
-        var response = await _connection
+        var response = await connection
             .SendAsync(new SignupCommand(credentials.ToObject()), ct)
             .ConfigureAwait(false);
 
@@ -187,7 +187,7 @@ public sealed class Surreal : IAsyncDisposable
             throw new InvalidOperationException(
                 "RefreshAsync requires a Token carrying both access and refresh components.");
 
-        var response = await _connection
+        var response = await connection
             .SendAsync(new RefreshCommand(token), ct)
             .ConfigureAwait(false);
 
@@ -202,7 +202,7 @@ public sealed class Surreal : IAsyncDisposable
     /// </summary>
     private void InstallReauthHandler(ICredentials credentials)
     {
-        _connection.ReauthHandler = async innerCt =>
+        connection.ReauthHandler = async innerCt =>
         {
             // Prefer refresh-token rotation if the most recent token carries one.
             var existing = CurrentToken;
@@ -210,7 +210,7 @@ public sealed class Surreal : IAsyncDisposable
             {
                 try
                 {
-                    var renewed = await _connection
+                    var renewed = await connection
                         .SendAsync(new RefreshCommand(existing), innerCt)
                         .ConfigureAwait(false);
                     CurrentToken = Token.FromValue(renewed);
@@ -222,7 +222,7 @@ public sealed class Surreal : IAsyncDisposable
                 }
             }
 
-            var response = await _connection
+            var response = await connection
                 .SendAsync(new SigninCommand(credentials.ToObject()), innerCt)
                 .ConfigureAwait(false);
             CurrentToken = Token.FromValue(response);
@@ -231,20 +231,20 @@ public sealed class Surreal : IAsyncDisposable
 
     /// <summary>Authenticate the current session with a previously issued JWT.</summary>
     public Task AuthenticateAsync(string token, CancellationToken ct = default) =>
-        _connection.SendAsync(new AuthenticateCommand(token), ct);
+        connection.SendAsync(new AuthenticateCommand(token), ct);
 
     /// <summary>Invalidate the current session's authentication.</summary>
     public async Task InvalidateAsync(CancellationToken ct = default)
     {
         try
         {
-            await _connection.SendAsync(new InvalidateCommand(), ct).ConfigureAwait(false);
+            await connection.SendAsync(new InvalidateCommand(), ct).ConfigureAwait(false);
         }
         finally
         {
             // Clear cached credentials and the captured token so we don't silently
             // re-auth after explicit invalidation.
-            _connection.ReauthHandler = null;
+            connection.ReauthHandler = null;
             CurrentToken = null;
         }
     }
@@ -253,11 +253,11 @@ public sealed class Surreal : IAsyncDisposable
 
     /// <summary>Define a session variable available to subsequent queries as <c>$key</c>.</summary>
     public Task SetAsync(string key, Value value, CancellationToken ct = default) =>
-        _connection.SendAsync(new SetCommand(key, value), ct);
+        connection.SendAsync(new SetCommand(key, value), ct);
 
     /// <summary>Remove a previously-set session variable.</summary>
     public Task UnsetAsync(string key, CancellationToken ct = default) =>
-        _connection.SendAsync(new UnsetCommand(key), ct);
+        connection.SendAsync(new UnsetCommand(key), ct);
 
     // ─── Health / Version ───────────────────────────────────────────────────────
 
@@ -266,7 +266,7 @@ public sealed class Surreal : IAsyncDisposable
     {
         try
         {
-            await _connection.SendAsync(new HealthCommand(), ct).ConfigureAwait(false);
+            await connection.SendAsync(new HealthCommand(), ct).ConfigureAwait(false);
             return true;
         }
         catch (SurrealException)
@@ -278,7 +278,7 @@ public sealed class Surreal : IAsyncDisposable
     /// <summary>Returns the version string reported by the server.</summary>
     public async Task<string> VersionAsync(CancellationToken ct = default)
     {
-        var response = await _connection.SendAsync(new VersionCommand(), ct).ConfigureAwait(false);
+        var response = await connection.SendAsync(new VersionCommand(), ct).ConfigureAwait(false);
         return response is StringValue s ? s.Value : response.ToString() ?? string.Empty;
     }
 
@@ -300,7 +300,7 @@ public sealed class Surreal : IAsyncDisposable
         Guid? txn,
         CancellationToken ct)
     {
-        return await _connection
+        return await connection
             .SendAsync(new QueryCommand(sql, bindings, txn), ct)
             .ConfigureAwait(false);
     }
@@ -433,8 +433,8 @@ public sealed class Surreal : IAsyncDisposable
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return await _connection
-            .SendAsync(new RunCommand(name, version, args ?? System.Array.Empty<Value>()), ct)
+        return await connection
+            .SendAsync(new RunCommand(name, version, args ?? []), ct)
             .ConfigureAwait(false);
     }
 
@@ -466,7 +466,7 @@ public sealed class Surreal : IAsyncDisposable
 
         // Run the LIVE SELECT through the standard query pipeline; the server returns
         // the assigned live-query UUID as the single statement's result.
-        var raw = await _connection
+        var raw = await connection
             .SendAsync(new QueryCommand(liveSql, bindings, Txn: null), ct)
             .ConfigureAwait(false);
 
@@ -491,18 +491,18 @@ public sealed class Surreal : IAsyncDisposable
 
         try
         {
-            _connection.RegisterLiveSubscription(liveQueryId, observingWriter);
+            connection.RegisterLiveSubscription(liveQueryId, observingWriter);
         }
         catch
         {
             channel.Writer.TryComplete();
             // Best-effort kill so the server doesn't keep buffering for a query nobody owns.
-            try { await _connection.SendAsync(new KillCommand(liveQueryId), ct).ConfigureAwait(false); }
+            try { await connection.SendAsync(new KillCommand(liveQueryId), ct).ConfigureAwait(false); }
             catch { /* swallow */ }
             throw;
         }
 
-        return new LiveQueryHandle(_connection, liveQueryId, channel.Reader, dropped);
+        return new LiveQueryHandle(connection, liveQueryId, channel.Reader, dropped);
     }
 
     // ─── Transactions ──────────────────────────────────────────────────────────
@@ -515,12 +515,12 @@ public sealed class Surreal : IAsyncDisposable
     /// </summary>
     public async Task<Transaction> BeginTransactionAsync(CancellationToken ct = default)
     {
-        var raw = await _connection.SendAsync(new BeginCommand(), ct).ConfigureAwait(false);
+        var raw = await connection.SendAsync(new BeginCommand(), ct).ConfigureAwait(false);
         // Server returns the transaction id as a Uuid.
         if (raw is not UuidValue { Value: var txnId })
             throw new SurrealProtocolException(
                 $"BEGIN response was not a UUID: {raw}");
-        return new Transaction(this, _connection, txnId);
+        return new Transaction(this, connection, txnId);
     }
 
     // ─── Internals ─────────────────────────────────────────────────────────────
@@ -528,7 +528,7 @@ public sealed class Surreal : IAsyncDisposable
     internal async Task<Value> ResourceQueryAsync(
         string sql, SurrealObject vars, Guid? txn, CancellationToken ct)
     {
-        var raw = await _connection
+        var raw = await connection
             .SendAsync(new QueryCommand(sql, vars, txn), ct)
             .ConfigureAwait(false);
 
@@ -623,5 +623,5 @@ public sealed class Surreal : IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => _connection.DisposeAsync();
+    public ValueTask DisposeAsync() => connection.DisposeAsync();
 }

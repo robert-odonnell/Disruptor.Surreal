@@ -64,10 +64,11 @@ public sealed class QueryResponse
         if (value is not ArrayValue { Array: var arr })
         {
             // Single-statement responses are sometimes returned as a bare value.
-            return new QueryResponse(new[]
-            {
-                new QueryStatement(QueryStatementStatus.Ok, value, null, null),
-            });
+            return new QueryResponse(
+            [
+                new QueryStatement(QueryStatementStatus.Ok, value, null, null)
+            ]
+            );
         }
 
         var list = new List<QueryStatement>(arr.Count);

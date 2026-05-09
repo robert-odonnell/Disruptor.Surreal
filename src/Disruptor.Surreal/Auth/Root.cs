@@ -34,20 +34,20 @@ public sealed record Root(string Username, string Password) : ICredentials
 /// </remarks>
 public sealed class AccessToken
 {
-    private readonly string _value;
+    private readonly string value;
 
     public AccessToken(string value)
     {
         ArgumentException.ThrowIfNullOrEmpty(value);
-        _value = value;
+        this.value = value;
     }
 
     /// <summary>Returns the bearer string. Treat as a secret.</summary>
-    public string AsInsecureToken() => _value;
+    public string AsInsecureToken() => value;
 
     /// <summary>Returns a redacted placeholder. Use <see cref="AsInsecureToken"/> to access the value.</summary>
     public override string ToString() => "AccessToken(REDACTED)";
 
     /// <summary>Implicit conversion to string for callers that need the bearer value directly.</summary>
-    public static implicit operator string(AccessToken t) => t._value;
+    public static implicit operator string(AccessToken t) => t.value;
 }

@@ -6,13 +6,9 @@ namespace Disruptor.Surreal.Connection;
 /// A parsed SurrealDB server version. Sourced from the <c>version</c> RPC, which
 /// returns strings like <c>"surrealdb-3.0.5"</c> or <c>"surrealdb-3.0.0-alpha.1"</c>.
 /// </summary>
-public readonly record struct ServerVersion(int Major, int Minor, int Patch, string? PreRelease)
+public readonly partial record struct ServerVersion(int Major, int Minor, int Patch, string? PreRelease)
     : IComparable<ServerVersion>
 {
-    private static readonly Regex VersionPattern = new(
-        @"^(?:surrealdb-)?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z\-.]+))?",
-        RegexOptions.Compiled);
-
     /// <summary>
     /// Parses a server-reported version. Tolerates an optional <c>surrealdb-</c> prefix
     /// and a SemVer pre-release suffix (which is preserved on the parsed value but
@@ -21,7 +17,7 @@ public readonly record struct ServerVersion(int Major, int Minor, int Patch, str
     public static ServerVersion Parse(string text)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
-        var m = VersionPattern.Match(text);
+        var m = VersionPattern().Match(text);
         if (!m.Success)
             throw new FormatException($"Could not parse SurrealDB version: '{text}'.");
         return new ServerVersion(
@@ -48,6 +44,9 @@ public readonly record struct ServerVersion(int Major, int Minor, int Patch, str
     public override string ToString() => PreRelease is null
         ? $"{Major}.{Minor}.{Patch}"
         : $"{Major}.{Minor}.{Patch}-{PreRelease}";
+
+    [GeneratedRegex(@"^(?:surrealdb-)?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z\-.]+))?", RegexOptions.Compiled)]
+    private static partial Regex VersionPattern();
 }
 
 /// <summary>

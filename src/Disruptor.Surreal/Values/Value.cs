@@ -76,7 +76,7 @@ public sealed record NullValue : Value
 }
 
 /// <summary>A boolean value.</summary>
-public sealed record BoolValue(bool Value) : Values.Value
+public sealed record BoolValue(bool Value) : Value
 {
     public override ValueKind Kind => ValueKind.Bool;
     public override string ToString() => Value ? "true" : "false";
@@ -90,14 +90,14 @@ public sealed record NumberValue(Number Number) : Value
 }
 
 /// <summary>A UTF-8 string.</summary>
-public sealed record StringValue(string Value) : Values.Value
+public sealed record StringValue(string Value) : Value
 {
     public override ValueKind Kind => ValueKind.String;
     public override string ToString() => Value;
 }
 
 /// <summary>Binary data.</summary>
-public sealed record BytesValue(ReadOnlyMemory<byte> Value) : Values.Value
+public sealed record BytesValue(ReadOnlyMemory<byte> Value) : Value
 {
     public override ValueKind Kind => ValueKind.Bytes;
     public override string ToString() => $"<bytes:{Value.Length}>";
@@ -128,7 +128,7 @@ public sealed record DurationValue(Duration Duration) : Value
 }
 
 /// <summary>A UUID.</summary>
-public sealed record UuidValue(Guid Value) : Values.Value
+public sealed record UuidValue(Guid Value) : Value
 {
     public override ValueKind Kind => ValueKind.Uuid;
     public override string ToString() => Value.ToString();

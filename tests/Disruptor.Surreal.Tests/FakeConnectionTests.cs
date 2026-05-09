@@ -15,7 +15,7 @@ public class FakeConnectionTests
 {
     private sealed class RecordingConnection : IConnection
     {
-        public List<(string Method, Value? Params, Guid? TxnId)> Sent { get; } = new();
+        public List<(string Method, Value? Params, Guid? TxnId)> Sent { get; } = [];
         public Func<string, Value?, Guid?, Value>? Responder { get; set; }
 
         public bool IsConnected { get; set; } = true;
@@ -40,15 +40,23 @@ public class FakeConnectionTests
         {
             Responder = (method, @params, txn) =>
                 // Server returns the query() shape: array of statement-result objects.
-                new ArrayValue(new SurrealArray
-                {
-                    new ObjectValue(new SurrealObject
-                    {
-                        ["status"] = "OK",
-                        ["time"] = "1ms",
-                        ["result"] = new ObjectValue(new SurrealObject { ["answer"] = 42L }),
-                    }),
-                }),
+                new ArrayValue(
+                    [
+                        new ObjectValue(
+                            new SurrealObject
+                            {
+                                ["status"] = "OK",
+                                ["time"] = "1ms",
+                                ["result"] = new ObjectValue(
+                                    new SurrealObject
+                                    {
+                                        ["answer"] = 42L
+                                    }
+                                ),
+                            }
+                        )
+                    ]
+                ),
         };
 
         await using var db = new Surreal(fake);

@@ -15,17 +15,17 @@ namespace Disruptor.Surreal;
 /// </remarks>
 public sealed class Transaction : IAsyncDisposable
 {
-    private readonly Surreal _client;
-    private readonly IConnection _connection;
-    private int _settled;
+    private readonly Surreal client;
+    private readonly IConnection connection;
+    private int settled;
 
     /// <summary>The server-issued transaction identifier.</summary>
     public Guid Id { get; }
 
     internal Transaction(Surreal client, IConnection connection, Guid id)
     {
-        _client = client;
-        _connection = connection;
+        this.client = client;
+        this.connection = connection;
         Id = id;
     }
 
@@ -34,7 +34,7 @@ public sealed class Transaction : IAsyncDisposable
         string sql, SurrealObject? bindings = null, CancellationToken ct = default)
     {
         EnsureLive();
-        var raw = await _client.QueryRawAsync(sql, bindings, Id, ct).ConfigureAwait(false);
+        var raw = await client.QueryRawAsync(sql, bindings, Id, ct).ConfigureAwait(false);
         return QueryResponse.FromValue(raw);
     }
 
@@ -42,7 +42,7 @@ public sealed class Transaction : IAsyncDisposable
     public Task<Value> SelectAsync(string table, CancellationToken ct = default)
     {
         EnsureLive();
-        return _client.ResourceQueryAsync("SELECT * FROM $_table",
+        return client.ResourceQueryAsync("SELECT * FROM $_table",
             new SurrealObject { ["_table"] = new TableValue(new Table(table)) }, Id, ct);
     }
 
@@ -50,7 +50,7 @@ public sealed class Transaction : IAsyncDisposable
     public Task<Value> SelectAsync(IRecordId id, CancellationToken ct = default)
     {
         EnsureLive();
-        return _client.ResourceQueryAsync("SELECT * FROM $_record_id",
+        return client.ResourceQueryAsync("SELECT * FROM $_record_id",
             new SurrealObject { ["_record_id"] = new RecordIdValue(id.ToRecordId()) }, Id, ct);
     }
 
@@ -65,7 +65,7 @@ public sealed class Transaction : IAsyncDisposable
             vars["_content"] = new ObjectValue(content);
             sql = "CREATE $_record_id CONTENT $_content";
         }
-        return _client.ResourceQueryAsync(sql, vars, Id, ct);
+        return client.ResourceQueryAsync(sql, vars, Id, ct);
     }
 
     /// <summary>Update a record by id inside this transaction.</summary>
@@ -77,14 +77,14 @@ public sealed class Transaction : IAsyncDisposable
             ["_record_id"] = new RecordIdValue(id.ToRecordId()),
             ["_content"] = new ObjectValue(content),
         };
-        return _client.ResourceQueryAsync("UPDATE $_record_id CONTENT $_content", vars, Id, ct);
+        return client.ResourceQueryAsync("UPDATE $_record_id CONTENT $_content", vars, Id, ct);
     }
 
     /// <summary>Delete a record by id inside this transaction.</summary>
     public Task<Value> DeleteAsync(IRecordId id, CancellationToken ct = default)
     {
         EnsureLive();
-        return _client.ResourceQueryAsync("DELETE $_record_id RETURN BEFORE",
+        return client.ResourceQueryAsync("DELETE $_record_id RETURN BEFORE",
             new SurrealObject { ["_record_id"] = new RecordIdValue(id.ToRecordId()) }, Id, ct);
     }
 
@@ -97,7 +97,7 @@ public sealed class Transaction : IAsyncDisposable
             ["_record_id"] = new RecordIdValue(id.ToRecordId()),
             ["_content"] = new ObjectValue(content),
         };
-        return _client.ResourceQueryAsync("UPSERT $_record_id CONTENT $_content", vars, Id, ct);
+        return client.ResourceQueryAsync("UPSERT $_record_id CONTENT $_content", vars, Id, ct);
     }
 
     /// <summary>Merge fields into a record by id inside this transaction.</summary>
@@ -109,7 +109,7 @@ public sealed class Transaction : IAsyncDisposable
             ["_record_id"] = new RecordIdValue(id.ToRecordId()),
             ["_content"] = new ObjectValue(content),
         };
-        return _client.ResourceQueryAsync("UPDATE $_record_id MERGE $_content", vars, Id, ct);
+        return client.ResourceQueryAsync("UPDATE $_record_id MERGE $_content", vars, Id, ct);
     }
 
     /// <summary>Apply JSON-Patch operations to a record by id inside this transaction.</summary>
@@ -123,7 +123,7 @@ public sealed class Transaction : IAsyncDisposable
             ["_record_id"] = new RecordIdValue(id.ToRecordId()),
             ["_patches"] = new ArrayValue(arr),
         };
-        return _client.ResourceQueryAsync("UPDATE $_record_id PATCH $_patches", vars, Id, ct);
+        return client.ResourceQueryAsync("UPDATE $_record_id PATCH $_patches", vars, Id, ct);
     }
 
     /// <summary>Insert a single record into a table inside this transaction.</summary>
@@ -135,7 +135,7 @@ public sealed class Transaction : IAsyncDisposable
             ["_table"] = new TableValue(new Table(table)),
             ["_content"] = new ObjectValue(content),
         };
-        return _client.ResourceQueryAsync("INSERT INTO $_table $_content", vars, Id, ct);
+        return client.ResourceQueryAsync("INSERT INTO $_table $_content", vars, Id, ct);
     }
 
     /// <summary>Insert multiple records into a table inside this transaction.</summary>
@@ -149,7 +149,7 @@ public sealed class Transaction : IAsyncDisposable
             ["_table"] = new TableValue(new Table(table)),
             ["_records"] = new ArrayValue(arr),
         };
-        return _client.ResourceQueryAsync("INSERT INTO $_table $_records", vars, Id, ct);
+        return client.ResourceQueryAsync("INSERT INTO $_table $_records", vars, Id, ct);
     }
 
     /// <summary>Insert one graph-edge record inside this transaction.</summary>
@@ -161,7 +161,7 @@ public sealed class Transaction : IAsyncDisposable
             ["_table"] = new TableValue(new Table(edgeTable)),
             ["_content"] = new ObjectValue(content),
         };
-        return _client.ResourceQueryAsync("INSERT RELATION INTO $_table $_content", vars, Id, ct);
+        return client.ResourceQueryAsync("INSERT RELATION INTO $_table $_content", vars, Id, ct);
     }
 
     /// <summary>Insert multiple graph-edge records inside this transaction.</summary>
@@ -175,7 +175,7 @@ public sealed class Transaction : IAsyncDisposable
             ["_table"] = new TableValue(new Table(edgeTable)),
             ["_records"] = new ArrayValue(arr),
         };
-        return _client.ResourceQueryAsync("INSERT RELATION INTO $_table $_records", vars, Id, ct);
+        return client.ResourceQueryAsync("INSERT RELATION INTO $_table $_records", vars, Id, ct);
     }
 
     /// <summary>
@@ -202,28 +202,28 @@ public sealed class Transaction : IAsyncDisposable
             ["_target"] = new RecordIdValue(target.ToRecordId()),
         };
         if (content is not null) vars["_content"] = new ObjectValue(content);
-        return _client.ResourceQueryAsync(sql, vars, Id, ct);
+        return client.ResourceQueryAsync(sql, vars, Id, ct);
     }
 
     /// <summary>Commit the transaction. Subsequent operations on this handle throw.</summary>
     public async Task CommitAsync(CancellationToken ct = default)
     {
-        if (Interlocked.Exchange(ref _settled, 1) != 0)
+        if (Interlocked.Exchange(ref settled, 1) != 0)
             throw new InvalidOperationException("Transaction already settled.");
-        await _connection.SendAsync(new CommitCommand(Id), ct).ConfigureAwait(false);
+        await connection.SendAsync(new CommitCommand(Id), ct).ConfigureAwait(false);
     }
 
     /// <summary>Cancel the transaction (rollback). Subsequent operations on this handle throw.</summary>
     public async Task CancelAsync(CancellationToken ct = default)
     {
-        if (Interlocked.Exchange(ref _settled, 1) != 0)
+        if (Interlocked.Exchange(ref settled, 1) != 0)
             throw new InvalidOperationException("Transaction already settled.");
-        await _connection.SendAsync(new CancelCommand(Id), ct).ConfigureAwait(false);
+        await connection.SendAsync(new CancelCommand(Id), ct).ConfigureAwait(false);
     }
 
     private void EnsureLive()
     {
-        if (Volatile.Read(ref _settled) != 0)
+        if (Volatile.Read(ref settled) != 0)
             throw new InvalidOperationException(
                 "Transaction has already been committed or cancelled.");
     }
@@ -231,11 +231,11 @@ public sealed class Transaction : IAsyncDisposable
     /// <summary>If still pending, attempt a best-effort cancel.</summary>
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _settled, 1) == 0 && _connection.IsConnected)
+        if (Interlocked.Exchange(ref settled, 1) == 0 && connection.IsConnected)
         {
             try
             {
-                await _connection.SendAsync(new CancelCommand(Id), CancellationToken.None)
+                await connection.SendAsync(new CancelCommand(Id), CancellationToken.None)
                     .ConfigureAwait(false);
             }
             catch

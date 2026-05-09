@@ -19,9 +19,9 @@ public enum NumberKind
 /// </summary>
 public readonly struct Number : IEquatable<Number>
 {
-    private readonly long _intValue;
-    private readonly double _floatValue;
-    private readonly decimal _decimalValue;
+    private readonly long intValue;
+    private readonly double floatValue;
+    private readonly decimal decimalValue;
 
     /// <summary>The active variant.</summary>
     public NumberKind Kind { get; }
@@ -29,9 +29,9 @@ public readonly struct Number : IEquatable<Number>
     private Number(NumberKind kind, long i, double f, decimal d)
     {
         Kind = kind;
-        _intValue = i;
-        _floatValue = f;
-        _decimalValue = d;
+        intValue = i;
+        floatValue = f;
+        decimalValue = d;
     }
 
     public static Number FromInt(long value) => new(NumberKind.Int, value, 0, 0);
@@ -39,23 +39,23 @@ public readonly struct Number : IEquatable<Number>
     public static Number FromDecimal(decimal value) => new(NumberKind.Decimal, 0, 0, value);
 
     /// <summary>The int64 value. Throws if <see cref="Kind"/> is not <see cref="NumberKind.Int"/>.</summary>
-    public long AsInt() => Kind == NumberKind.Int ? _intValue
+    public long AsInt() => Kind == NumberKind.Int ? intValue
         : throw new InvalidOperationException($"Number is {Kind}, not Int");
 
     /// <summary>The float64 value. Throws if <see cref="Kind"/> is not <see cref="NumberKind.Float"/>.</summary>
-    public double AsFloat() => Kind == NumberKind.Float ? _floatValue
+    public double AsFloat() => Kind == NumberKind.Float ? floatValue
         : throw new InvalidOperationException($"Number is {Kind}, not Float");
 
     /// <summary>The decimal value. Throws if <see cref="Kind"/> is not <see cref="NumberKind.Decimal"/>.</summary>
-    public decimal AsDecimal() => Kind == NumberKind.Decimal ? _decimalValue
+    public decimal AsDecimal() => Kind == NumberKind.Decimal ? decimalValue
         : throw new InvalidOperationException($"Number is {Kind}, not Decimal");
 
     /// <summary>Returns the value as <see cref="double"/>, regardless of kind. Lossy for Decimal values out of range.</summary>
     public double ToDouble() => Kind switch
     {
-        NumberKind.Int => _intValue,
-        NumberKind.Float => _floatValue,
-        NumberKind.Decimal => (double)_decimalValue,
+        NumberKind.Int => intValue,
+        NumberKind.Float => floatValue,
+        NumberKind.Decimal => (double)decimalValue,
         _ => throw new InvalidOperationException(),
     };
 
@@ -64,9 +64,9 @@ public readonly struct Number : IEquatable<Number>
         if (Kind != other.Kind) return false;
         return Kind switch
         {
-            NumberKind.Int => _intValue == other._intValue,
-            NumberKind.Float => _floatValue.Equals(other._floatValue),
-            NumberKind.Decimal => _decimalValue == other._decimalValue,
+            NumberKind.Int => intValue == other.intValue,
+            NumberKind.Float => floatValue.Equals(other.floatValue),
+            NumberKind.Decimal => decimalValue == other.decimalValue,
             _ => false,
         };
     }
@@ -75,9 +75,9 @@ public readonly struct Number : IEquatable<Number>
 
     public override int GetHashCode() => Kind switch
     {
-        NumberKind.Int => HashCode.Combine(Kind, _intValue),
-        NumberKind.Float => HashCode.Combine(Kind, _floatValue),
-        NumberKind.Decimal => HashCode.Combine(Kind, _decimalValue),
+        NumberKind.Int => HashCode.Combine(Kind, intValue),
+        NumberKind.Float => HashCode.Combine(Kind, floatValue),
+        NumberKind.Decimal => HashCode.Combine(Kind, decimalValue),
         _ => 0,
     };
 
@@ -86,9 +86,9 @@ public readonly struct Number : IEquatable<Number>
 
     public override string ToString() => Kind switch
     {
-        NumberKind.Int => _intValue.ToString(CultureInfo.InvariantCulture),
-        NumberKind.Float => _floatValue.ToString("R", CultureInfo.InvariantCulture) + "f",
-        NumberKind.Decimal => _decimalValue.ToString(CultureInfo.InvariantCulture) + "dec",
+        NumberKind.Int => intValue.ToString(CultureInfo.InvariantCulture),
+        NumberKind.Float => floatValue.ToString("R", CultureInfo.InvariantCulture) + "f",
+        NumberKind.Decimal => decimalValue.ToString(CultureInfo.InvariantCulture) + "dec",
         _ => "?",
     };
 }

@@ -30,7 +30,7 @@ public abstract record Geometry
         public IReadOnlyList<Point> Points { get; }
 
         public Line(IEnumerable<Point> points) =>
-            Points = points is IReadOnlyList<Point> rl ? rl : points.ToList();
+            Points = points as IReadOnlyList<Point> ?? points.ToList();
 
         public bool Equals(Line? other) =>
             other is not null && Points.SequenceEqual(other.Points);
@@ -53,8 +53,8 @@ public abstract record Geometry
         {
             Exterior = exterior;
             Interiors = interiors is null
-                ? System.Array.Empty<Line>()
-                : interiors is IReadOnlyList<Line> rl ? rl : interiors.ToList();
+                ? []
+                : interiors as IReadOnlyList<Line> ?? interiors.ToList();
         }
 
         public bool Equals(Polygon? other) =>
@@ -73,7 +73,7 @@ public abstract record Geometry
     {
         public IReadOnlyList<Point> Points { get; }
         public MultiPoint(IEnumerable<Point> points) =>
-            Points = points is IReadOnlyList<Point> rl ? rl : points.ToList();
+            Points = points as IReadOnlyList<Point> ?? points.ToList();
 
         public bool Equals(MultiPoint? other) =>
             other is not null && Points.SequenceEqual(other.Points);
@@ -90,7 +90,7 @@ public abstract record Geometry
     {
         public IReadOnlyList<Line> Lines { get; }
         public MultiLine(IEnumerable<Line> lines) =>
-            Lines = lines is IReadOnlyList<Line> rl ? rl : lines.ToList();
+            Lines = lines as IReadOnlyList<Line> ?? lines.ToList();
 
         public bool Equals(MultiLine? other) =>
             other is not null && Lines.SequenceEqual(other.Lines);
@@ -107,7 +107,7 @@ public abstract record Geometry
     {
         public IReadOnlyList<Polygon> Polygons { get; }
         public MultiPolygon(IEnumerable<Polygon> polygons) =>
-            Polygons = polygons is IReadOnlyList<Polygon> rl ? rl : polygons.ToList();
+            Polygons = polygons as IReadOnlyList<Polygon> ?? polygons.ToList();
 
         public bool Equals(MultiPolygon? other) =>
             other is not null && Polygons.SequenceEqual(other.Polygons);
@@ -124,7 +124,7 @@ public abstract record Geometry
     {
         public IReadOnlyList<Geometry> Items { get; }
         public Collection(IEnumerable<Geometry> items) =>
-            Items = items is IReadOnlyList<Geometry> rl ? rl : items.ToList();
+            Items = items as IReadOnlyList<Geometry> ?? items.ToList();
 
         public bool Equals(Collection? other) =>
             other is not null && Items.SequenceEqual(other.Items);
