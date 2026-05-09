@@ -128,3 +128,9 @@ internal sealed record RunCommand(string Name, string? Version, IReadOnlyList<Va
         });
     }
 }
+
+internal sealed record KillCommand(Guid LiveQueryId) : Command
+{
+    public override string Method => "kill";
+    public override Value BuildParams() => new ArrayValue(new SurrealArray { LiveQueryId });
+}

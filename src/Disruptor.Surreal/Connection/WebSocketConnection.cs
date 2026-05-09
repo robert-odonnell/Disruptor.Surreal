@@ -18,6 +18,7 @@ internal sealed class WebSocketConnection : IConnection
     private readonly Endpoint _endpoint;
     private readonly Channel<RpcRequest> _outbound;
     private readonly ConcurrentDictionary<long, TaskCompletionSource<RpcResponse>> _pending = new();
+    private readonly ConcurrentDictionary<Guid, ChannelWriter<Notification>> _liveSubscriptions = new();
     private readonly CancellationTokenSource _shutdown = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
@@ -36,6 +37,19 @@ internal sealed class WebSocketConnection : IConnection
     /// after a successful signin.
     /// </summary>
     public Func<CancellationToken, Task>? ReauthHandler { get; set; }
+
+    public void RegisterLiveSubscription(Guid liveQueryId, ChannelWriter<Notification> writer)
+    {
+        if (!_liveSubscriptions.TryAdd(liveQueryId, writer))
+            throw new InvalidOperationException(
+                $"Live subscription for {liveQueryId} is already registered.");
+    }
+
+    public void UnregisterLiveSubscription(Guid liveQueryId)
+    {
+        if (_liveSubscriptions.TryRemove(liveQueryId, out var writer))
+            writer.TryComplete();
+    }
 
     private WebSocketConnection(ClientWebSocket socket, Endpoint endpoint)
     {
@@ -250,12 +264,50 @@ internal sealed class WebSocketConnection : IConnection
 
         if (response.Id is not { } id)
         {
-            // No id → live notification (not supported in v1) — drop silently.
+            // No id → unsolicited frame; live notifications are the canonical case.
+            DispatchLiveNotification(response);
             return;
         }
 
         if (_pending.TryRemove(id, out var tcs))
             tcs.TrySetResult(response);
+    }
+
+    private void DispatchLiveNotification(RpcResponse response)
+    {
+        if (TryParseNotification(response.Result) is not { } notification) return;
+        if (!_liveSubscriptions.TryGetValue(notification.LiveQueryId, out var writer)) return;
+        // Channel was created with the consumer-chosen FullMode — TryWrite reflects that
+        // policy (DropNewest returns true after dropping; Wait blocks; etc.).
+        writer.TryWrite(notification);
+    }
+
+    /// <summary>
+    /// Parse the SurrealDB live-notification wire shape from the <c>result</c> object:
+    /// <c>{ id: uuid, session?: uuid, action: "CREATE"|"UPDATE"|"DELETE", record: any, result: any }</c>.
+    /// Returns null if the payload doesn't match the expected shape (silently dropped).
+    /// </summary>
+    internal static Notification? TryParseNotification(Value? value)
+    {
+        if (value is not ObjectValue { Object: var obj }) return null;
+        if (!obj.TryGetValue("id", out var idValue) || idValue is not UuidValue { Value: var id })
+            return null;
+        if (!obj.TryGetValue("action", out var actionValue) || actionValue is not StringValue actionStr)
+            return null;
+
+        NotificationAction action;
+        switch (actionStr.Value.ToUpperInvariant())
+        {
+            case "CREATE": action = NotificationAction.Create; break;
+            case "UPDATE": action = NotificationAction.Update; break;
+            case "DELETE": action = NotificationAction.Delete; break;
+            default: return null;
+        }
+
+        var record = obj.TryGetValue("record", out var r) ? r : Value.None;
+        var resultPayload = obj.TryGetValue("result", out var rp) ? rp : Value.None;
+
+        return new Notification(id, action, record, resultPayload);
     }
 
     private async Task PingLoopAsync()
@@ -288,6 +340,13 @@ internal sealed class WebSocketConnection : IConnection
         {
             if (_pending.TryRemove(id, out _))
                 tcs.TrySetException(ex);
+        }
+        // Complete every live subscription with the same exception so consumers'
+        // `await foreach` terminates loudly rather than hanging forever.
+        foreach (var (id, writer) in _liveSubscriptions.ToArray())
+        {
+            if (_liveSubscriptions.TryRemove(id, out _))
+                writer.TryComplete(ex);
         }
     }
 

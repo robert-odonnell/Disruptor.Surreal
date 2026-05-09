@@ -1,6 +1,6 @@
 # Disruptor.Surreal
 
-An .NET 10 client for [SurrealDB](https://surrealdb.com), modeled on the
+A .NET 10 client for [SurrealDB](https://surrealdb.com), modeled on the
 official Rust client. CBOR over WebSocket. Single package. No embedded mode.
 
 > **Unofficial.** Not affiliated with the SurrealDB project. The
@@ -135,7 +135,7 @@ representation in the protocol.)*
 | `run` (server-side function, optional version) | yes | **yes**          |
 | `version` / `ping` (health)                | yes  | **yes**           |
 | `begin` / `commit` / `cancel` (txn id)     | yes  | **yes**           |
-| `live` / `kill` (live queries)             | yes  | no                |
+| `live` / `kill` (live queries)             | yes  | **yes** (`LiveAsync` returns a `LiveQueryHandle : IAsyncEnumerable<Notification>`; `DroppedCount` exposes back-pressure-induced loss) |
 | `export` / `import`                        | yes  | **out** — server-side these are HTTP endpoints (`/export`, `/import`), not RPC methods; out of scope alongside the HTTP transport |
 | ML model export                            | yes  | **out**           |
 

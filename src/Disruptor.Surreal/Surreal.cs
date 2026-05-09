@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using Disruptor.Surreal.Auth;
 using Disruptor.Surreal.Connection;
 using Disruptor.Surreal.Values;
@@ -428,6 +429,73 @@ public sealed class Surreal : IAsyncDisposable
         return await _connection
             .SendAsync(new RunCommand(name, version, args ?? System.Array.Empty<Value>()), ct)
             .ConfigureAwait(false);
+    }
+
+    // ─── Live queries ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Subscribe to a live query and return a handle whose <c>await foreach</c> yields
+    /// <see cref="Notification"/>s as the server pushes them.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="sql"/> is auto-prefixed with <c>LIVE </c> when it doesn't already
+    /// start with the keyword. Disposing the handle (or letting the connection drop)
+    /// stops the subscription — disposal sends a best-effort <c>kill</c> RPC.
+    /// </remarks>
+    public async Task<LiveQueryHandle> LiveAsync(
+        string sql,
+        SurrealObject? bindings = null,
+        LiveQueryOptions? options = null,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+        options ??= new LiveQueryOptions();
+
+        // Auto-prefix LIVE if absent so callers can just write a SELECT.
+        var trimmed = sql.TrimStart();
+        var liveSql = trimmed.StartsWith("LIVE ", StringComparison.OrdinalIgnoreCase)
+            ? sql
+            : "LIVE " + sql;
+
+        // Run the LIVE SELECT through the standard query pipeline; the server returns
+        // the assigned live-query UUID as the single statement's result.
+        var raw = await _connection
+            .SendAsync(new QueryCommand(liveSql, bindings, Txn: null), ct)
+            .ConfigureAwait(false);
+
+        var unwrapped = UnwrapSingleStatement(raw);
+        if (unwrapped is not UuidValue { Value: var liveQueryId })
+            throw new SurrealProtocolException(
+                $"LIVE SELECT result was not a UUID; got {unwrapped.Kind}.");
+
+        // Build the per-subscription channel + register so the receive loop can
+        // dispatch incoming notifications to it. Inner channel is always Wait-mode;
+        // the wrapper writer drives the user-chosen FullMode (DropNewest by default)
+        // so we can observe and count drops (which BCL drop-modes don't expose).
+        var channel = Channel.CreateBounded<Notification>(
+            new BoundedChannelOptions(options.Capacity)
+            {
+                SingleReader = true,
+                SingleWriter = true,
+                FullMode = BoundedChannelFullMode.Wait,
+            });
+        var dropped = new DroppedCounter();
+        var observingWriter = new DroppedCountingChannelWriter(channel, dropped, options.FullMode);
+
+        try
+        {
+            _connection.RegisterLiveSubscription(liveQueryId, observingWriter);
+        }
+        catch
+        {
+            channel.Writer.TryComplete();
+            // Best-effort kill so the server doesn't keep buffering for a query nobody owns.
+            try { await _connection.SendAsync(new KillCommand(liveQueryId), ct).ConfigureAwait(false); }
+            catch { /* swallow */ }
+            throw;
+        }
+
+        return new LiveQueryHandle(_connection, liveQueryId, channel.Reader, dropped);
     }
 
     // ─── Transactions ──────────────────────────────────────────────────────────

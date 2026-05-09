@@ -67,6 +67,34 @@ await db.QueryAsync("DEFINE FUNCTION fn::greet($name: string) { RETURN 'hello, '
 var greet = await db.RunAsync("fn::greet", ["Jaime"]);
 Console.WriteLine($"Run fn::greet('Jaime') => {greet}");
 
+// ─── live queries ─────────────────────────────────────────────────────────
+// Subscribe, mutate in another task, watch notifications stream in.
+await using var live = await db.LiveAsync("SELECT * FROM person");
+Console.WriteLine($"Subscribed live query {live.Id}");
+
+var producer = Task.Run(async () =>
+{
+    await Task.Delay(50);
+    await db.CreateAsync(new RecordId("person", "newcomer"), new SurrealObject { ["name"] = "Newcomer", ["age"] = 25L });
+    await db.UpdateAsync(new RecordId("person", "ghost"), new SurrealObject { ["name"] = "Ghost", ["age"] = 100L });
+    await db.DeleteAsync(new RecordId("person", "newcomer"));
+});
+
+using var liveCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+var seen = 0;
+try
+{
+    await foreach (var n in live.WithCancellation(liveCts.Token))
+    {
+        Console.WriteLine($"  notif: {n.Action} {n.Record}");
+        seen++;
+        if (seen >= 3) break;
+    }
+}
+catch (OperationCanceledException) { /* timeout fallback */ }
+await producer;
+Console.WriteLine($"Live total seen: {seen}, dropped: {live.DroppedCount}");
+
 // Cleanup
 await db.QueryAsync("REMOVE TABLE person");
 await db.QueryAsync("REMOVE TABLE knows");

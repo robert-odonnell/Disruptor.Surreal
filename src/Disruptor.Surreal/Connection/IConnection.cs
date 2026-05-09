@@ -23,4 +23,16 @@ internal interface IConnection : IAsyncDisposable
     /// request is retried once. Set by the client after a successful signin.
     /// </summary>
     Func<CancellationToken, Task>? ReauthHandler { get; set; }
+
+    /// <summary>
+    /// Register a channel writer to receive notifications for a particular live query id.
+    /// The receive loop dispatches incoming live frames to the matching writer.
+    /// </summary>
+    void RegisterLiveSubscription(Guid liveQueryId, System.Threading.Channels.ChannelWriter<Notification> writer);
+
+    /// <summary>
+    /// Remove a live subscription. Called by <see cref="LiveQueryHandle"/> on disposal
+    /// after a best-effort kill RPC, or on connection drop to drain the registry.
+    /// </summary>
+    void UnregisterLiveSubscription(Guid liveQueryId);
 }
