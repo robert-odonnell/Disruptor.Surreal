@@ -14,7 +14,7 @@ internal abstract record Command
     public abstract string Method { get; }
 
     /// <summary>Builds the <c>params</c> array for the wire request, or <c>null</c> when the command has none.</summary>
-    public abstract Value? BuildParams();
+    public abstract SurrealValue? BuildParams();
 
     /// <summary>The transaction id this command runs inside, if any.</summary>
     public virtual Guid? TxnId => null;
@@ -23,10 +23,10 @@ internal abstract record Command
 internal sealed record UseCommand(string? Namespace, string? Database) : Command
 {
     public override string Method => "use";
-    public override Value BuildParams() => new ArrayValue(
+    public override SurrealValue BuildParams() => new SurrealListValue(
         [
-            Namespace is null ? Value.None : Namespace,
-            Database is null ? Value.None : Database
+            Namespace is null ? SurrealValue.None : Namespace,
+            Database is null ? SurrealValue.None : Database
         ]
     );
 }
@@ -34,40 +34,40 @@ internal sealed record UseCommand(string? Namespace, string? Database) : Command
 internal sealed record SigninCommand(SurrealObject Credentials) : Command
 {
     public override string Method => "signin";
-    public override Value BuildParams() => new ArrayValue([new ObjectValue(Credentials)]);
+    public override SurrealValue BuildParams() => new SurrealListValue([new SurrealObjectValue(Credentials)]);
 }
 
 internal sealed record SignupCommand(SurrealObject Credentials) : Command
 {
     public override string Method => "signup";
-    public override Value BuildParams() => new ArrayValue([new ObjectValue(Credentials)]);
+    public override SurrealValue BuildParams() => new SurrealListValue([new SurrealObjectValue(Credentials)]);
 }
 
 internal sealed record AuthenticateCommand(string Token) : Command
 {
     public override string Method => "authenticate";
-    public override Value BuildParams() => new ArrayValue([Token]);
+    public override SurrealValue BuildParams() => new SurrealListValue([Token]);
 }
 
-internal sealed record RefreshCommand(Auth.Token Token) : Command
+internal sealed record RefreshCommand(Auth.SurrealToken SurrealToken) : Command
 {
     public override string Method => "refresh";
-    public override Value BuildParams() => new ArrayValue([Token.ToValue()]);
+    public override SurrealValue BuildParams() => new SurrealListValue([SurrealToken.ToValue()]);
 }
 
 internal sealed record InvalidateCommand : Command
 {
     public override string Method => "invalidate";
-    public override Value? BuildParams() => null;
+    public override SurrealValue? BuildParams() => null;
 }
 
-internal sealed record SetCommand(string Key, Value VarValue) : Command
+internal sealed record SetCommand(string Key, SurrealValue SurrealVarValue) : Command
 {
     public override string Method => "let";
-    public override Value BuildParams() => new ArrayValue(
+    public override SurrealValue BuildParams() => new SurrealListValue(
         [
             Key,
-            VarValue
+            SurrealVarValue
         ]
     );
 }
@@ -75,17 +75,17 @@ internal sealed record SetCommand(string Key, Value VarValue) : Command
 internal sealed record UnsetCommand(string Key) : Command
 {
     public override string Method => "unset";
-    public override Value BuildParams() => new ArrayValue([Key]);
+    public override SurrealValue BuildParams() => new SurrealListValue([Key]);
 }
 
 internal sealed record QueryCommand(string Sql, SurrealObject? Variables, Guid? Txn) : Command
 {
     public override string Method => "query";
     public override Guid? TxnId => Txn;
-    public override Value BuildParams() => new ArrayValue(
+    public override SurrealValue BuildParams() => new SurrealListValue(
         [
             Sql,
-            new ObjectValue(Variables ?? new SurrealObject())
+            new SurrealObjectValue(Variables ?? new SurrealObject())
         ]
     );
 }
@@ -93,45 +93,45 @@ internal sealed record QueryCommand(string Sql, SurrealObject? Variables, Guid? 
 internal sealed record BeginCommand : Command
 {
     public override string Method => "begin";
-    public override Value? BuildParams() => null;
+    public override SurrealValue? BuildParams() => null;
 }
 
 internal sealed record CommitCommand(Guid Txn) : Command
 {
     public override string Method => "commit";
-    public override Value BuildParams() => new ArrayValue([Txn]);
+    public override SurrealValue BuildParams() => new SurrealListValue([Txn]);
 }
 
 internal sealed record CancelCommand(Guid Txn) : Command
 {
     public override string Method => "cancel";
-    public override Value BuildParams() => new ArrayValue([Txn]);
+    public override SurrealValue BuildParams() => new SurrealListValue([Txn]);
 }
 
 internal sealed record HealthCommand : Command
 {
     public override string Method => "ping";
-    public override Value? BuildParams() => null;
+    public override SurrealValue? BuildParams() => null;
 }
 
 internal sealed record VersionCommand : Command
 {
     public override string Method => "version";
-    public override Value? BuildParams() => null;
+    public override SurrealValue? BuildParams() => null;
 }
 
-internal sealed record RunCommand(string Name, string? Version, IReadOnlyList<Value> Args) : Command
+internal sealed record RunCommand(string Name, string? Version, IReadOnlyList<SurrealValue> Args) : Command
 {
     public override string Method => "run";
-    public override Value BuildParams()
+    public override SurrealValue BuildParams()
     {
-        var argsArray = new SurrealArray(Args.Count);
+        var argsArray = new SurrealList(Args.Count);
         foreach (var a in Args) argsArray.Add(a);
-        return new ArrayValue(
+        return new SurrealListValue(
             [
                 Name,
-                Version is null ? Value.None : Version,
-                new ArrayValue(argsArray)
+                Version is null ? SurrealValue.None : Version,
+                new SurrealListValue(argsArray)
             ]
         );
     }
@@ -140,21 +140,21 @@ internal sealed record RunCommand(string Name, string? Version, IReadOnlyList<Va
 internal sealed record KillCommand(Guid LiveQueryId) : Command
 {
     public override string Method => "kill";
-    public override Value BuildParams() => new ArrayValue([LiveQueryId]);
+    public override SurrealValue BuildParams() => new SurrealListValue([LiveQueryId]);
 }
 
 /// <summary>
 /// Bridge between the internal <see cref="Command"/> DSL and the public wire-level
-/// <see cref="IConnection.SendAsync(string, Value?, Guid?, CancellationToken)"/>.
+/// <see cref="ISurrealConnection.SendAsync(string, SurrealValue?, Guid?, CancellationToken)"/>.
 /// Keeps existing <c>_connection.SendAsync(new XCommand(...))</c> call sites in
-/// <see cref="Surreal"/> compiling without converting to the wire signature at every
+/// <see cref="SurrealClient"/> compiling without converting to the wire signature at every
 /// call.
 /// </summary>
 internal static class ConnectionCommandExtensions
 {
-    public static Task<Value> SendAsync(
-        this IConnection connection,
+    public static Task<SurrealValue> SendAsync(
+        this ISurrealConnection surrealConnection,
         Command command,
         CancellationToken ct = default) =>
-        connection.SendAsync(command.Method, command.BuildParams(), command.TxnId, ct);
+        surrealConnection.SendAsync(command.Method, command.BuildParams(), command.TxnId, ct);
 }

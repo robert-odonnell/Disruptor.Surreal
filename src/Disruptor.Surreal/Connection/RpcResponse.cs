@@ -20,7 +20,7 @@ internal sealed class RpcResponse
     public Guid? SessionId { get; init; }
 
     /// <summary>The success payload, or <c>null</c> if <see cref="Error"/> is set.</summary>
-    public Value? Result { get; init; }
+    public SurrealValue? Result { get; init; }
 
     /// <summary>The error payload, or <c>null</c> on success.</summary>
     public RpcErrorPayload? Error { get; init; }
@@ -30,17 +30,17 @@ internal sealed class RpcResponse
 
     public static RpcResponse Decode(ReadOnlyMemory<byte> bytes)
     {
-        var value = CborValueReader.Decode(bytes);
-        if (value is not ObjectValue { Object: var obj })
+        var value = SurrealCborValueReader.Decode(bytes);
+        if (value is not SurrealObjectValue { Object: var obj })
             throw new SurrealProtocolException(
                 $"RPC response must be a CBOR map; got {value.Kind}.");
 
         long? id = null;
-        if (obj.TryGetValue("id", out var idValue) && idValue is NumberValue { Number: var n } && n.Kind == NumberKind.Int)
+        if (obj.TryGetValue("id", out var idValue) && idValue is SurrealNumberValue { SurrealNumber: var n } && n.Kind == SurrealNumberKind.Int)
             id = n.AsInt();
 
         Guid? sessionId = null;
-        if (obj.TryGetValue("session", out var sessValue) && sessValue is UuidValue u)
+        if (obj.TryGetValue("session", out var sessValue) && sessValue is SurrealUuidValue u)
             sessionId = u.Value;
 
         if (obj.TryGetValue("error", out var errVal))
@@ -55,30 +55,30 @@ internal sealed class RpcResponse
         throw new SurrealProtocolException("RPC response missing both 'result' and 'error'.");
     }
 
-    private static RpcErrorPayload ParseError(Value value)
+    private static RpcErrorPayload ParseError(SurrealValue surrealValue)
     {
-        if (value is not ObjectValue { Object: var obj })
-            return new RpcErrorPayload(0, $"Unstructured error: {value}", null, null);
+        if (surrealValue is not SurrealObjectValue { Object: var obj })
+            return new RpcErrorPayload(0, $"Unstructured error: {surrealValue}", null, null);
 
         long code = 0;
-        if (obj.TryGetValue("code", out var c) && c is NumberValue { Number.Kind: NumberKind.Int } cn)
-            code = cn.Number.AsInt();
+        if (obj.TryGetValue("code", out var c) && c is SurrealNumberValue { SurrealNumber.Kind: SurrealNumberKind.Int } cn)
+            code = cn.SurrealNumber.AsInt();
 
         var message = "Unknown error";
-        if (obj.TryGetValue("message", out var m) && m is StringValue ms)
+        if (obj.TryGetValue("message", out var m) && m is StringSurrealValue ms)
             message = ms.Value;
 
         string? kind = null;
-        if (obj.TryGetValue("kind", out var k) && k is StringValue ks)
+        if (obj.TryGetValue("kind", out var k) && k is StringSurrealValue ks)
             kind = ks.Value;
 
         string? detailsKind = null;
-        if (obj.TryGetValue("details", out var d) && d is ObjectValue { Object: var details })
+        if (obj.TryGetValue("details", out var d) && d is SurrealObjectValue { Object: var details })
         {
             // Surreal flattens ErrorDetails: e.g. NotAllowed { Auth { TokenExpired } } produces
             // kind="NotAllowed", details={ kind: "Auth", details: { kind: "TokenExpired" } } — we
             // walk one level for the immediate sub-discriminator.
-            if (details.TryGetValue("kind", out var dk) && dk is StringValue dks)
+            if (details.TryGetValue("kind", out var dk) && dk is StringSurrealValue dks)
                 detailsKind = dks.Value;
         }
 

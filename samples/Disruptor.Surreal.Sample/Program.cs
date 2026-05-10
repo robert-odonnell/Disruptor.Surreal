@@ -2,14 +2,14 @@ using Disruptor.Surreal;
 using Disruptor.Surreal.Connection;
 using Disruptor.Surreal.Values;
 
-await using var db = await Surreal.ConnectAsync(SurrealOptions.Parse(
+await using var db = await SurrealClient.ConnectAsync(SurrealOptions.Parse(
     "Url=ws://localhost:8000;Namespace=test;Database=test;User=root;Password=root"));
 Console.WriteLine($"Connected. Server: {await db.VersionAsync()}");
 
 // ─── insert (single + bulk) ───────────────────────────────────────────────
 var jaime = await db.InsertAsync("person", new SurrealObject
 {
-    ["id"] = new RecordIdValue(new RecordId("person", "jaime")),
+    ["id"] = new SurrealRecordIdValue(new SurrealRecordId("person", "jaime")),
     ["name"] = "Jaime",
     ["age"] = 30L,
 });
@@ -17,36 +17,36 @@ Console.WriteLine($"Insert single: {jaime}");
 
 await db.InsertAsync("person",
 [
-    new SurrealObject { ["id"] = new RecordIdValue(new RecordId("person", "tobie")), ["name"] = "Tobie", ["age"] = 32L },
-    new SurrealObject { ["id"] = new RecordIdValue(new RecordId("person", "rebecca")), ["name"] = "Rebecca", ["age"] = 28L },
+    new SurrealObject { ["id"] = new SurrealRecordIdValue(new SurrealRecordId("person", "tobie")), ["name"] = "Tobie", ["age"] = 32L },
+    new SurrealObject { ["id"] = new SurrealRecordIdValue(new SurrealRecordId("person", "rebecca")), ["name"] = "Rebecca", ["age"] = 28L },
 ]);
 Console.WriteLine($"Insert bulk: {await db.SelectAsync("person")}");
 
 // ─── upsert ───────────────────────────────────────────────────────────────
-await db.UpsertAsync(new RecordId("person", "ghost"), new SurrealObject
+await db.UpsertAsync(new SurrealRecordId("person", "ghost"), new SurrealObject
 {
     ["name"] = "Ghost",
     ["age"] = 99L,
 });
-Console.WriteLine($"Upsert created: {await db.SelectAsync(new RecordId("person", "ghost"))}");
+Console.WriteLine($"Upsert created: {await db.SelectAsync(new SurrealRecordId("person", "ghost"))}");
 
 // ─── merge ────────────────────────────────────────────────────────────────
-await db.MergeAsync(new RecordId("person", "jaime"), new SurrealObject { ["title"] = "Founder" });
-Console.WriteLine($"Merge: {await db.SelectAsync(new RecordId("person", "jaime"))}");
+await db.MergeAsync(new SurrealRecordId("person", "jaime"), new SurrealObject { ["title"] = "Founder" });
+Console.WriteLine($"Merge: {await db.SelectAsync(new SurrealRecordId("person", "jaime"))}");
 
 // ─── patch ────────────────────────────────────────────────────────────────
-await db.PatchAsync(new RecordId("person", "jaime"),
+await db.PatchAsync(new SurrealRecordId("person", "jaime"),
 [
     Patch.Replace("/age", 31L),
     Patch.Add("/email", "jaime@example.com"),
 ]);
-Console.WriteLine($"Patch: {await db.SelectAsync(new RecordId("person", "jaime"))}");
+Console.WriteLine($"Patch: {await db.SelectAsync(new SurrealRecordId("person", "jaime"))}");
 
 // ─── relate ───────────────────────────────────────────────────────────────
 await db.RelateAsync(
-    new RecordId("person", "jaime"),
+    new SurrealRecordId("person", "jaime"),
     "knows",
-    new RecordId("person", "tobie"),
+    new SurrealRecordId("person", "tobie"),
     new SurrealObject { ["since"] = "2020" });
 Console.WriteLine($"Relate: {(await db.QueryAsync("SELECT * FROM knows")).Take(0)}");
 
@@ -55,8 +55,8 @@ await db.InsertRelationAsync("knows",
 [
     new SurrealObject
     {
-        ["in"] = new RecordIdValue(new RecordId("person", "tobie")),
-        ["out"] = new RecordIdValue(new RecordId("person", "rebecca")),
+        ["in"] = new SurrealRecordIdValue(new SurrealRecordId("person", "tobie")),
+        ["out"] = new SurrealRecordIdValue(new SurrealRecordId("person", "rebecca")),
         ["since"] = "2021",
     },
 ]);
@@ -75,9 +75,9 @@ Console.WriteLine($"Subscribed live query {live.Id}");
 var producer = Task.Run(async () =>
 {
     await Task.Delay(50);
-    await db.CreateAsync(new RecordId("person", "newcomer"), new SurrealObject { ["name"] = "Newcomer", ["age"] = 25L });
-    await db.UpdateAsync(new RecordId("person", "ghost"), new SurrealObject { ["name"] = "Ghost", ["age"] = 100L });
-    await db.DeleteAsync(new RecordId("person", "newcomer"));
+    await db.CreateAsync(new SurrealRecordId("person", "newcomer"), new SurrealObject { ["name"] = "Newcomer", ["age"] = 25L });
+    await db.UpdateAsync(new SurrealRecordId("person", "ghost"), new SurrealObject { ["name"] = "Ghost", ["age"] = 100L });
+    await db.DeleteAsync(new SurrealRecordId("person", "newcomer"));
 });
 
 using var liveCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));

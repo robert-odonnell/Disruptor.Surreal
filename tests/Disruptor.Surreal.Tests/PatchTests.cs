@@ -9,26 +9,26 @@ public class PatchTests
     public void Add_BuildsExpectedShape()
     {
         var op = Patch.Add("/name", "Jaime");
-        Assert.Equal("add", ((StringValue)op["op"]).Value);
-        Assert.Equal("/name", ((StringValue)op["path"]).Value);
-        Assert.Equal("Jaime", ((StringValue)op["value"]).Value);
+        Assert.Equal("add", ((StringSurrealValue)op["op"]).Value);
+        Assert.Equal("/name", ((StringSurrealValue)op["path"]).Value);
+        Assert.Equal("Jaime", ((StringSurrealValue)op["value"]).Value);
     }
 
     [Fact]
     public void Replace_BuildsExpectedShape()
     {
         var op = Patch.Replace("/age", 31L);
-        Assert.Equal("replace", ((StringValue)op["op"]).Value);
-        Assert.Equal("/age", ((StringValue)op["path"]).Value);
-        Assert.Equal(31L, ((NumberValue)op["value"]).Number.AsInt());
+        Assert.Equal("replace", ((StringSurrealValue)op["op"]).Value);
+        Assert.Equal("/age", ((StringSurrealValue)op["path"]).Value);
+        Assert.Equal(31L, ((SurrealNumberValue)op["value"]).SurrealNumber.AsInt());
     }
 
     [Fact]
     public void Remove_OmitsValue()
     {
         var op = Patch.Remove("/admin");
-        Assert.Equal("remove", ((StringValue)op["op"]).Value);
-        Assert.Equal("/admin", ((StringValue)op["path"]).Value);
+        Assert.Equal("remove", ((StringSurrealValue)op["op"]).Value);
+        Assert.Equal("/admin", ((StringSurrealValue)op["path"]).Value);
         Assert.False(op.ContainsKey("value"));
     }
 
@@ -36,16 +36,16 @@ public class PatchTests
     public void Move_HasFromAndPath()
     {
         var op = Patch.Move("/old", "/new");
-        Assert.Equal("move", ((StringValue)op["op"]).Value);
-        Assert.Equal("/old", ((StringValue)op["from"]).Value);
-        Assert.Equal("/new", ((StringValue)op["path"]).Value);
+        Assert.Equal("move", ((StringSurrealValue)op["op"]).Value);
+        Assert.Equal("/old", ((StringSurrealValue)op["from"]).Value);
+        Assert.Equal("/new", ((StringSurrealValue)op["path"]).Value);
     }
 
     [Fact]
     public void Test_HasOpPathValue()
     {
         var op = Patch.Test("/locked", true);
-        Assert.Equal("test", ((StringValue)op["op"]).Value);
-        Assert.True(((BoolValue)op["value"]).Value);
+        Assert.Equal("test", ((StringSurrealValue)op["op"]).Value);
+        Assert.True(((SurrealBoolValue)op["value"]).Value);
     }
 }

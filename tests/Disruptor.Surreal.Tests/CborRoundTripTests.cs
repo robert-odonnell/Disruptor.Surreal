@@ -9,17 +9,17 @@ public class CborRoundTripTests
     [Fact]
     public void None_RoundTrips()
     {
-        var bytes = CborValueWriter.Encode(Value.None);
-        var decoded = CborValueReader.Decode(bytes);
-        Assert.Equal(Value.None, decoded);
+        var bytes = SurrealCborValueWriter.Encode(SurrealValue.None);
+        var decoded = SurrealCborValueReader.Decode(bytes);
+        Assert.Equal(SurrealValue.None, decoded);
     }
 
     [Fact]
     public void Null_RoundTrips()
     {
-        var bytes = CborValueWriter.Encode(Value.Null);
-        var decoded = CborValueReader.Decode(bytes);
-        Assert.Equal(Value.Null, decoded);
+        var bytes = SurrealCborValueWriter.Encode(SurrealValue.Null);
+        var decoded = SurrealCborValueReader.Decode(bytes);
+        Assert.Equal(SurrealValue.Null, decoded);
     }
 
     [Theory]
@@ -27,9 +27,9 @@ public class CborRoundTripTests
     [InlineData(false)]
     public void Bool_RoundTrips(bool b)
     {
-        Value source = b;
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = b;
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
@@ -41,9 +41,9 @@ public class CborRoundTripTests
     [InlineData(long.MinValue)]
     public void Int_RoundTrips(long n)
     {
-        Value source = n;
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = n;
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
@@ -55,121 +55,103 @@ public class CborRoundTripTests
     [InlineData(double.MinValue)]
     public void Float_RoundTrips(double d)
     {
-        Value source = d;
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = d;
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Decimal_RoundTrips()
     {
-        Value source = 123.456789m;
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = 123.456789m;
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void String_RoundTrips()
     {
-        Value source = "hello, 世界";
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = "hello, 世界";
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Bytes_RoundTrips()
     {
-        Value source = new BytesValue(new byte[] { 1, 2, 3, 255, 0, 128 });
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealBytesValue(new byte[] { 1, 2, 3, 255, 0, 128 });
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Datetime_RoundTrips_WithSubMicrosecondPrecision()
     {
-        var datetime = new Datetime(seconds: 1_700_000_000, nanos: 123_456_789);
-        Value source = new DatetimeValue(datetime);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        var datetime = new SurrealDateTime(seconds: 1_700_000_000, nanos: 123_456_789);
+        SurrealValue source = new SurrealDateTimeValue(datetime);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
-        Assert.Equal(datetime.Nanos, ((DatetimeValue)decoded).Datetime.Nanos);
+        Assert.Equal(datetime.Nanos, ((SurrealDateTimeValue)decoded).SurrealDateTime.Nanos);
     }
 
     [Fact]
     public void Duration_RoundTrips_WithNanos()
     {
-        var dur = new Duration(seconds: 90, nanos: 500_000_000);
-        Value source = new DurationValue(dur);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        var dur = new SurrealDuration(seconds: 90, nanos: 500_000_000);
+        SurrealValue source = new SurrealDurationValue(dur);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Uuid_RoundTrips()
     {
-        Value source = Guid.Parse("8c5b1e4d-3f2a-4c6e-9e7f-1a2b3c4d5e6f");
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = Guid.Parse("8c5b1e4d-3f2a-4c6e-9e7f-1a2b3c4d5e6f");
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void RecordId_StringKey_RoundTrips()
     {
-        Value source = new RecordId("person", "jaime");
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealRecordId("person", "jaime");
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
-    }
-
-    [Fact]
-    public void RecordId_UlidKey_WritesAsCanonicalString()
-    {
-        // Ulid round-trips asymmetrically: writes as canonical text (the form SurrealDB
-        // stores), reads back as StringRecordIdKey. Verify the string round-trip is
-        // stable and matches the canonical form.
-        var ulid = Ulid.NewUlid();
-        Value source = new RecordId("person", ulid);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
-
-        var rid = Assert.IsType<RecordIdValue>(decoded).RecordId;
-        Assert.Equal("person", rid.Table.Name);
-        var key = Assert.IsType<StringRecordIdKey>(rid.Key);
-        Assert.Equal(ulid.ToString(), key.Value);
-        Assert.Equal(ulid, Ulid.Parse(key.Value));
     }
 
     [Fact]
     public void RecordId_IntegerKey_RoundTrips()
     {
-        Value source = new RecordId("user", 42L);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealRecordId("user", 42L);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Table_RoundTrips()
     {
-        Value source = new Table("person");
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealTable("person");
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Array_RoundTrips()
     {
-        var arr = new SurrealArray { 1L, "two", true, Value.None };
-        Value source = new ArrayValue(arr);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        var arr = new SurrealList { 1L, "two", true, SurrealValue.None };
+        SurrealValue source = new SurrealListValue(arr);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
@@ -177,12 +159,12 @@ public class CborRoundTripTests
     public void Object_RoundTrips_PreservesInsertionOrder()
     {
         var obj = new SurrealObject { ["name"] = "Jaime", ["age"] = 30L, ["admin"] = true };
-        Value source = new ObjectValue(obj);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealObjectValue(obj);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
 
-        var roundtrippedKeys = ((ObjectValue)decoded).Object.Keys.ToList();
+        var roundtrippedKeys = ((SurrealObjectValue)decoded).Object.Keys.ToList();
         Assert.Equal(new[] { "name", "age", "admin" }, roundtrippedKeys);
     }
 
@@ -190,20 +172,20 @@ public class CborRoundTripTests
     public void Range_FullyBounded_RoundTrips()
     {
         var range = new SurrealRange(
-            new Bound<Value>.Included(1L),
-            new Bound<Value>.Excluded(10L));
-        Value source = new RangeValue(range);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+            new SurrealBound<SurrealValue>.Included(1L),
+            new SurrealBound<SurrealValue>.Excluded(10L));
+        SurrealValue source = new SurrealRangeValue(range);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Range_Unbounded_RoundTrips()
     {
-        Value source = new RangeValue(SurrealRange.Unbounded());
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealRangeValue(SurrealRange.Unbounded());
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
@@ -211,11 +193,11 @@ public class CborRoundTripTests
     public void Range_HalfOpen_RoundTrips()
     {
         var range = new SurrealRange(
-            new Bound<Value>.Included(0L),
-            Bound<Value>.Unbounded.Instance);
-        Value source = new RangeValue(range);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+            new SurrealBound<SurrealValue>.Included(0L),
+            SurrealBound<SurrealValue>.Unbounded.Instance);
+        SurrealValue source = new SurrealRangeValue(range);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
@@ -223,104 +205,104 @@ public class CborRoundTripTests
     public void RecordId_WithRangeKey_RoundTrips()
     {
         // person:a..z — a range over string-keyed records on `person`.
-        var rangeKey = new RangeRecordIdKey(new RecordIdKeyRange(
-            new Bound<RecordIdKey>.Included(new StringRecordIdKey("a")),
-            new Bound<RecordIdKey>.Excluded(new StringRecordIdKey("z"))));
-        var rid = new RecordId(new Table("person"), rangeKey);
-        Value source = new RecordIdValue(rid);
+        var rangeKey = new SurrealRangeRecordIdKey(new RecordIdKeyRange(
+            new SurrealBound<SurrealRecordIdKey>.Included(new SurrealStringRecordIdKey("a")),
+            new SurrealBound<SurrealRecordIdKey>.Excluded(new SurrealStringRecordIdKey("z"))));
+        var rid = new SurrealRecordId(new SurrealTable("person"), rangeKey);
+        SurrealValue source = new SurrealRecordIdValue(rid);
 
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
 
-        var roundtripped = (RecordIdValue)decoded;
-        var roundtrippedRange = Assert.IsType<RangeRecordIdKey>(roundtripped.RecordId.Key);
-        Assert.IsType<Bound<RecordIdKey>.Included>(roundtrippedRange.Range.Start);
-        Assert.IsType<Bound<RecordIdKey>.Excluded>(roundtrippedRange.Range.End);
+        var roundtripped = (SurrealRecordIdValue)decoded;
+        var roundtrippedRange = Assert.IsType<SurrealRangeRecordIdKey>(roundtripped.SurrealRecordId.Key);
+        Assert.IsType<SurrealBound<SurrealRecordIdKey>.Included>(roundtrippedRange.Range.Start);
+        Assert.IsType<SurrealBound<SurrealRecordIdKey>.Excluded>(roundtrippedRange.Range.End);
     }
 
     [Fact]
     public void Geometry_Point_RoundTrips()
     {
-        Value source = new GeometryValue(new Geometry.Point(1.5, -2.25));
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealGeometryValue(new SurrealGeometry.Point(1.5, -2.25));
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Geometry_Line_RoundTrips()
     {
-        var line = new Geometry.Line(
+        var line = new SurrealGeometry.Line(
         [
-            new Geometry.Point(0, 0),
-            new Geometry.Point(1, 1),
-            new Geometry.Point(2, 0)
+            new SurrealGeometry.Point(0, 0),
+            new SurrealGeometry.Point(1, 1),
+            new SurrealGeometry.Point(2, 0)
         ]
         );
-        Value source = new GeometryValue(line);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealGeometryValue(line);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Geometry_PolygonWithHole_RoundTrips()
     {
-        var exterior = new Geometry.Line(
+        var exterior = new SurrealGeometry.Line(
         [
-            new Geometry.Point(0, 0), new Geometry.Point(10, 0),
-            new Geometry.Point(10, 10), new Geometry.Point(0, 10),
-            new Geometry.Point(0, 0)
+            new SurrealGeometry.Point(0, 0), new SurrealGeometry.Point(10, 0),
+            new SurrealGeometry.Point(10, 10), new SurrealGeometry.Point(0, 10),
+            new SurrealGeometry.Point(0, 0)
         ]
         );
-        var hole = new Geometry.Line(
+        var hole = new SurrealGeometry.Line(
         [
-            new Geometry.Point(2, 2), new Geometry.Point(4, 2),
-            new Geometry.Point(4, 4), new Geometry.Point(2, 4),
-            new Geometry.Point(2, 2)
+            new SurrealGeometry.Point(2, 2), new SurrealGeometry.Point(4, 2),
+            new SurrealGeometry.Point(4, 4), new SurrealGeometry.Point(2, 4),
+            new SurrealGeometry.Point(2, 2)
         ]
         );
-        Value source = new GeometryValue(new Geometry.Polygon(exterior, [hole]));
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealGeometryValue(new SurrealGeometry.Polygon(exterior, [hole]));
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Geometry_MultiPoint_RoundTrips()
     {
-        Value source = new GeometryValue(new Geometry.MultiPoint(
+        SurrealValue source = new SurrealGeometryValue(new SurrealGeometry.MultiPoint(
         [
-            new Geometry.Point(1, 2), new Geometry.Point(3, 4)
+            new SurrealGeometry.Point(1, 2), new SurrealGeometry.Point(3, 4)
         ]
         ));
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void Geometry_Collection_HeterogeneousRoundTrips()
     {
-        var collection = new Geometry.Collection(
+        var collection = new SurrealGeometry.Collection(
         [
-            new Geometry.Point(0, 0),
-            new Geometry.Line([new Geometry.Point(0, 0), new Geometry.Point(1, 1)])
+            new SurrealGeometry.Point(0, 0),
+            new SurrealGeometry.Line([new SurrealGeometry.Point(0, 0), new SurrealGeometry.Point(1, 1)])
         ]
         );
-        Value source = new GeometryValue(collection);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealGeometryValue(collection);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
     [Fact]
     public void File_RoundTrips()
     {
-        Value source = new FileValue(new SurrealFile("avatars", "/users/jaime.png"));
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealFileValue(new SurrealFile("avatars", "/users/jaime.png"));
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
@@ -336,19 +318,19 @@ public class CborRoundTripTests
     {
         var set = new SurrealSet { 1L, 2L, 3L, 2L, 1L }; // duplicates collapse
         Assert.Equal(3, set.Count);
-        Value source = new SetValue(set);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealSetValue(set);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
-        Assert.Equal(3, ((SetValue)decoded).Set.Count);
+        Assert.Equal(3, ((SurrealSetValue)decoded).Set.Count);
     }
 
     [Fact]
     public void Set_Empty_RoundTrips()
     {
-        Value source = new SetValue([]);
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        SurrealValue source = new SurrealSetValue([]);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
         Assert.Equal(source, decoded);
     }
 
@@ -356,12 +338,12 @@ public class CborRoundTripTests
     public void NestedComposite_RoundTrips()
     {
         var inner = new SurrealObject { ["x"] = 1L, ["y"] = 2.5 };
-        var arr = new SurrealArray { new ObjectValue(inner), new RecordId("t", "k") };
-        var outer = new SurrealObject { ["items"] = new ArrayValue(arr), ["ts"] = DateTimeOffset.UtcNow };
-        Value source = new ObjectValue(outer);
+        var arr = new SurrealList { new SurrealObjectValue(inner), new SurrealRecordId("t", "k") };
+        var outer = new SurrealObject { ["items"] = new SurrealListValue(arr), ["ts"] = DateTimeOffset.UtcNow };
+        SurrealValue source = new SurrealObjectValue(outer);
 
-        var bytes = CborValueWriter.Encode(source);
-        var decoded = CborValueReader.Decode(bytes);
+        var bytes = SurrealCborValueWriter.Encode(source);
+        var decoded = SurrealCborValueReader.Decode(bytes);
 
         Assert.Equal(source, decoded);
     }

@@ -5,7 +5,7 @@ namespace Disruptor.Surreal.Connection;
 
 /// <summary>
 /// All-in-one connection settings: where to connect, who to sign in as, which
-/// namespace/database to use. Pass to <see cref="Surreal.ConnectAsync(SurrealOptions, CancellationToken)"/>
+/// namespace/database to use. Pass to <see cref="SurrealClient.ConnectAsync(SurrealOptions, CancellationToken)"/>
 /// to do connect + signin + use_ns/db in a single call.
 /// </summary>
 public sealed record SurrealOptions
@@ -26,11 +26,11 @@ public sealed record SurrealOptions
     public string? Password { get; init; }
 
     /// <summary>Underlying connection-level configuration. Defaults are sane.</summary>
-    public ConnectionConfig Config { get; init; } = new();
+    public SurrealConnectionConfig Config { get; init; } = new();
 
     /// <summary>Returns the credentials to pass to <c>SigninAsync</c>, or <c>null</c> when no signin is requested.</summary>
-    internal ICredentials? BuildCredentials() =>
-        User is not null && Password is not null ? new Root(User, Password) : null;
+    internal ISurrealCredentials? BuildCredentials() =>
+        User is not null && Password is not null ? new SurrealRoot(User, Password) : null;
 
     /// <summary>
     /// Parse an ADO-style key/value connection string. Recognised keys (case-insensitive):
@@ -107,11 +107,11 @@ public sealed record SurrealOptions
         if (url is null)
             throw new FormatException("Connection string is missing the required 'Url' key.");
 
-        var config = new ConnectionConfig
+        var config = new SurrealConnectionConfig
         {
-            RequestTimeout = requestTimeout ?? new ConnectionConfig().RequestTimeout,
-            PingInterval = pingInterval ?? new ConnectionConfig().PingInterval,
-            MaxMessageSize = maxMessageSize ?? new ConnectionConfig().MaxMessageSize,
+            RequestTimeout = requestTimeout ?? new SurrealConnectionConfig().RequestTimeout,
+            PingInterval = pingInterval ?? new SurrealConnectionConfig().PingInterval,
+            MaxMessageSize = maxMessageSize ?? new SurrealConnectionConfig().MaxMessageSize,
         };
 
         return new SurrealOptions
