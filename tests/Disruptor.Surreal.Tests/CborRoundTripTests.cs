@@ -128,6 +128,24 @@ public class CborRoundTripTests
     }
 
     [Fact]
+    public void RecordId_UlidKey_WritesAsCanonicalString()
+    {
+        // Ulid round-trips asymmetrically: writes as canonical text (the form SurrealDB
+        // stores), reads back as StringRecordIdKey. Verify the string round-trip is
+        // stable and matches the canonical form.
+        var ulid = Ulid.NewUlid();
+        Value source = new RecordId("person", ulid);
+        var bytes = CborValueWriter.Encode(source);
+        var decoded = CborValueReader.Decode(bytes);
+
+        var rid = Assert.IsType<RecordIdValue>(decoded).RecordId;
+        Assert.Equal("person", rid.Table.Name);
+        var key = Assert.IsType<StringRecordIdKey>(rid.Key);
+        Assert.Equal(ulid.ToString(), key.Value);
+        Assert.Equal(ulid, Ulid.Parse(key.Value));
+    }
+
+    [Fact]
     public void RecordId_IntegerKey_RoundTrips()
     {
         Value source = new RecordId("user", 42L);

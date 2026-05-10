@@ -10,6 +10,7 @@ public enum RecordIdKeyKind
     Array,
     Object,
     Uuid,
+    Ulid,
     Range,
 }
 
@@ -27,6 +28,7 @@ public abstract record RecordIdKey
     public static implicit operator RecordIdKey(long value) => new IntegerRecordIdKey(value);
     public static implicit operator RecordIdKey(int value) => new IntegerRecordIdKey(value);
     public static implicit operator RecordIdKey(Guid value) => new UuidRecordIdKey(value);
+    public static implicit operator RecordIdKey(Ulid value) => new UlidRecordIdKey(value);
 }
 
 /// <summary>A string-typed record key (the most common case).</summary>
@@ -48,6 +50,13 @@ public sealed record UuidRecordIdKey(Guid Value) : RecordIdKey
 {
     public override RecordIdKeyKind Kind => RecordIdKeyKind.Uuid;
     public override string ToString() => $"u'{Value:D}'";
+}
+
+/// <summary>A ULID-typed record key.</summary>
+public sealed record UlidRecordIdKey(Ulid Value) : RecordIdKey
+{
+    public override RecordIdKeyKind Kind => RecordIdKeyKind.Ulid;
+    public override string ToString() => Value.ToString();
 }
 
 /// <summary>A composite array key.</summary>

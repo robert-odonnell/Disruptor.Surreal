@@ -14,6 +14,9 @@ public sealed record RecordId(Table Table, RecordIdKey Key) : IRecordId
     /// <summary>Convenience overload for the common <c>(table-name, uuid-key)</c> shape.</summary>
     public RecordId(string table, Guid key) : this(new Table(table), new UuidRecordIdKey(key)) { }
 
+    /// <summary>Convenience overload for the common <c>(table-name, ulid-key)</c> shape.</summary>
+    public RecordId(string table, Ulid key) : this(new Table(table), new UlidRecordIdKey(key)) { }
+
     /// <summary>Parses a record id of the form <c>table:key</c> (string keys only).</summary>
     public static RecordId ParseSimple(string text)
     {

@@ -327,6 +327,13 @@ public static class CborValueWriter
             case UuidRecordIdKey u:
                 WriteUuid(writer, u.Value);
                 break;
+            case UlidRecordIdKey u:
+                // SurrealDB stores Ulid record ids as their canonical Crockford-base32
+                // text form (e.g. person:01HXY...). Round-trip via string is asymmetric:
+                // writes go out as Ulid, reads come back as StringRecordIdKey — call
+                // Ulid.Parse on the string yourself if you know the shape.
+                writer.WriteTextString(u.Value.ToString());
+                break;
             case ArrayRecordIdKey a:
                 WriteArray(writer, a.Items);
                 break;
