@@ -15,4 +15,8 @@ public sealed record SurrealNamespace(string NS, string Username, string Passwor
         ["user"] = Username,
         ["pass"] = Password,
     };
+
+    /// <summary>Redacted form — the auto-generated record ToString would leak the password.</summary>
+    public override string ToString() =>
+        $"SurrealNamespace {{ NS = {NS}, Username = {Username}, Password = ***** }}";
 }

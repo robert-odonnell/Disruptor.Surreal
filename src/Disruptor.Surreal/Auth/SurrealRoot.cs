@@ -21,6 +21,9 @@ public sealed record SurrealRoot(string Username, string Password) : ISurrealCre
         ["user"] = Username,
         ["pass"] = Password,
     };
+
+    /// <summary>Redacted form — the auto-generated record ToString would leak the password.</summary>
+    public override string ToString() => $"SurrealRoot {{ Username = {Username}, Password = ***** }}";
 }
 
 /// <summary>

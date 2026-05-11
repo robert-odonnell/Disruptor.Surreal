@@ -119,13 +119,16 @@ internal sealed class DroppedCountingChannelWriter(
         }
     }
 
-    public override async ValueTask WriteAsync(SurrealNotification item, CancellationToken ct = default)
+    public override ValueTask WriteAsync(SurrealNotification item, CancellationToken ct = default)
     {
-        if (TryWrite(item)) return;
+        // Fast path: every non-Wait policy completes synchronously via TryWrite
+        // (drops apply their own counter bump; success just buffers). No state
+        // machine in the common case.
+        if (TryWrite(item)) return ValueTask.CompletedTask;
         // Wait policy + full channel: actually wait for space. Note this stalls
         // the connection's receive loop while it's blocked here — the documented
         // foot-gun of choosing Wait on a shared connection.
-        await inner.Writer.WriteAsync(item, ct).ConfigureAwait(false);
+        return inner.Writer.WriteAsync(item, ct);
     }
 
     public override bool TryComplete(Exception? error = null) => inner.Writer.TryComplete(error);

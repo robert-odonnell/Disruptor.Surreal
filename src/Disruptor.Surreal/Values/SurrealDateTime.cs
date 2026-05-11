@@ -30,8 +30,21 @@ public readonly struct SurrealDateTime : IEquatable<SurrealDateTime>, IComparabl
     {
         var utc = value.ToUniversalTime();
         var ticks = utc.UtcTicks - DateTimeOffset.UnixEpoch.UtcTicks; // 100ns ticks
-        Seconds = ticks / TimeSpan.TicksPerSecond;
-        var subSecondTicks = ticks - Seconds * TimeSpan.TicksPerSecond;
+
+        // C# integer division truncates toward zero. For pre-epoch instants like
+        // 1969-12-31T23:59:59.500Z (ticks = -5_000_000), naive division yields
+        // Seconds=0 and a negative sub-second remainder, which then wraps into an
+        // invalid Nanos value when cast to uint. Apply a floor-style adjustment so
+        // the remainder is always in [0, TicksPerSecond) and the invariant
+        // 0 ≤ Nanos < 1_000_000_000 holds for every reachable DateTimeOffset.
+        var seconds = Math.DivRem(ticks, TimeSpan.TicksPerSecond, out var subSecondTicks);
+        if (subSecondTicks < 0)
+        {
+            seconds--;
+            subSecondTicks += TimeSpan.TicksPerSecond;
+        }
+
+        Seconds = seconds;
         Nanos = (uint)(subSecondTicks * 100);
     }
 

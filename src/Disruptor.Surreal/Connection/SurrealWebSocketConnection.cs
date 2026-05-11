@@ -209,6 +209,7 @@ internal sealed class SurrealWebSocketConnection : ISurrealConnection
             {
                 using var ms = new MemoryStream();
                 WebSocketReceiveResult result;
+                var sizeLimitExceeded = false;
                 do
                 {
                     result = await socket.ReceiveAsync(buffer, shutdown.Token).ConfigureAwait(false);
@@ -221,19 +222,29 @@ internal sealed class SurrealWebSocketConnection : ISurrealConnection
                         return;
                     }
                     ms.Write(buffer, 0, result.Count);
+
+                    // Check during accumulation so a misbehaving peer can't blow past the
+                    // limit before we notice — the whole point of MaxMessageSize is to cap
+                    // memory growth, not just to detect after-the-fact.
+                    if (ms.Length > surrealEndpoint.Config.MaxMessageSize)
+                    {
+                        sizeLimitExceeded = true;
+                        break;
+                    }
                 } while (!result.EndOfMessage);
 
-                if (result.MessageType != WebSocketMessageType.Binary)
-                    continue; // ignore unexpected text frames
-
-                if (ms.Length > surrealEndpoint.Config.MaxMessageSize)
+                if (sizeLimitExceeded)
                 {
                     FailAllPending(new SurrealConnectionException(
                         $"Inbound message exceeded MaxMessageSize ({ms.Length} > {surrealEndpoint.Config.MaxMessageSize})."));
                     return;
                 }
 
-                DispatchResponse(ms.GetBuffer().AsMemory(0, (int)ms.Length));
+                if (result.MessageType != WebSocketMessageType.Binary)
+                    continue; // ignore unexpected text frames
+
+                await DispatchResponseAsync(ms.GetBuffer().AsMemory(0, (int)ms.Length))
+                    .ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
@@ -248,7 +259,7 @@ internal sealed class SurrealWebSocketConnection : ISurrealConnection
         }
     }
 
-    private void DispatchResponse(ReadOnlyMemory<byte> payload)
+    private ValueTask DispatchResponseAsync(ReadOnlyMemory<byte> payload)
     {
         RpcResponse response;
         try
@@ -261,27 +272,29 @@ internal sealed class SurrealWebSocketConnection : ISurrealConnection
             // Fail the oldest pending request as a best-effort signal.
             var firstPending = pending.Values.FirstOrDefault();
             firstPending?.TrySetException(new SurrealProtocolException("Malformed RPC response.", ex));
-            return;
+            return ValueTask.CompletedTask;
         }
 
         if (response.Id is not { } id)
         {
             // No id → unsolicited frame; live notifications are the canonical case.
-            DispatchLiveNotification(response);
-            return;
+            return DispatchLiveNotificationAsync(response);
         }
 
         if (pending.TryRemove(id, out var tcs))
             tcs.TrySetResult(response);
+        return ValueTask.CompletedTask;
     }
 
-    private void DispatchLiveNotification(RpcResponse response)
+    private ValueTask DispatchLiveNotificationAsync(RpcResponse response)
     {
-        if (TryParseNotification(response.Result) is not { } notification) return;
-        if (!liveSubscriptions.TryGetValue(notification.LiveQueryId, out var writer)) return;
-        // Channel was created with the consumer-chosen FullMode — TryWrite reflects that
-        // policy (DropNewest returns true after dropping; Wait blocks; etc.).
-        writer.TryWrite(notification);
+        if (TryParseNotification(response.Result) is not { } notification) return ValueTask.CompletedTask;
+        if (!liveSubscriptions.TryGetValue(notification.LiveQueryId, out var writer)) return ValueTask.CompletedTask;
+        // WriteAsync honours the channel's FullMode — drop policies complete synchronously
+        // (the wrapper bumps DroppedCount and returns); Wait policy actually waits for the
+        // consumer to drain, which back-pressures the connection-wide receive loop (the
+        // documented foot-gun of choosing Wait on a shared connection).
+        return writer.WriteAsync(notification, shutdown.Token);
     }
 
     /// <summary>

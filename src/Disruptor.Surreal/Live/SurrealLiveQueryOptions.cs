@@ -25,7 +25,7 @@ public sealed record SurrealLiveQueryOptions
     /// <list type="bullet">
     /// <item><see cref="BoundedChannelFullMode.Wait"/>: blocks the receive loop. Foot-gun on a shared connection — only safe if you have a single live query and a fast consumer.</item>
     /// <item><see cref="BoundedChannelFullMode.DropOldest"/>: keep latest, drop oldest. Right when "current state" matters more than "every transition".</item>
-    /// <item><see cref="BoundedChannelFullMode.DropWrite"/>: silently drops new arrivals without bumping <see cref="SurrealLiveQueryHandle.DroppedCount"/>. Almost never the right choice.</item>
+    /// <item><see cref="BoundedChannelFullMode.DropWrite"/>: drops new arrivals; behaves identically to <see cref="BoundedChannelFullMode.DropNewest"/> in this wrapper (both bump <see cref="SurrealLiveQueryHandle.DroppedCount"/>). Pick whichever name reads more clearly at the call site.</item>
     /// </list>
     /// </remarks>
     public BoundedChannelFullMode FullMode { get; init; } = BoundedChannelFullMode.DropNewest;

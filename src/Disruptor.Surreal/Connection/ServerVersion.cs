@@ -45,7 +45,7 @@ public readonly partial record struct ServerVersion(int Major, int Minor, int Pa
         ? $"{Major}.{Minor}.{Patch}"
         : $"{Major}.{Minor}.{Patch}-{PreRelease}";
 
-    [GeneratedRegex(@"^(?:surrealdb-)?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z\-.]+))?", RegexOptions.Compiled)]
+    [GeneratedRegex(@"^(?:surrealdb-)?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z\-.]+))?\s*$", RegexOptions.Compiled)]
     private static partial Regex VersionPattern();
 }
 

@@ -31,4 +31,12 @@ public sealed record SurrealRecord(string NS, string DB, string Access, SurrealO
         }
         return obj;
     }
+
+    /// <summary>
+    /// Redacted form — the auto-generated record ToString would leak whatever the
+    /// caller put in <see cref="Params"/> (signup forms commonly include passwords or
+    /// secrets). Frame is shown; params are redacted en bloc.
+    /// </summary>
+    public override string ToString() =>
+        $"SurrealRecord {{ NS = {NS}, DB = {DB}, Access = {Access}, Params = ***** }}";
 }

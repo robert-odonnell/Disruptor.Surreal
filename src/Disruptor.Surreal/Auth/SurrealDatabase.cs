@@ -16,4 +16,8 @@ public sealed record SurrealDatabase(string NS, string DB, string Username, stri
         ["user"] = Username,
         ["pass"] = Password,
     };
+
+    /// <summary>Redacted form — the auto-generated record ToString would leak the password.</summary>
+    public override string ToString() =>
+        $"SurrealDatabase {{ NS = {NS}, DB = {DB}, Username = {Username}, Password = ***** }}";
 }
