@@ -4,7 +4,7 @@ A .NET 10 client for [SurrealDB](https://surrealdb.com), modeled on the
 official Rust client. CBOR over WebSocket. Single package. No embedded mode.
 
 > **Unofficial.** Not affiliated with the SurrealDB project. The
-> `Disruptor.Surreal` name keeps that unambiguous. Apache-2.0; contributions
+> `Disruptor.Surreal` name keeps that unambiguous. MIT; contributions
 > welcome.
 
 ## Why this exists
@@ -38,10 +38,10 @@ using Disruptor.Surreal.Connection;
 using Disruptor.Surreal.Values;
 
 // One-shot connect: parse the connection string, dial WS, signin, switch ns/db.
-await using var db = await Surreal.ConnectAsync(SurrealOptions.Parse(
+await using var db = await SurrealClient.ConnectAsync(SurrealOptions.Parse(
     "Url=ws://localhost:8000;Namespace=test;Database=test;User=root;Password=root"));
 
-var jaime = new RecordId("person", "jaime");
+var jaime = new SurrealRecordId("person", "jaime");
 
 // Create a record at a known id
 await db.CreateAsync(jaime, new SurrealObject
@@ -72,14 +72,14 @@ CBOR over WebSocket using the SurrealDB-flavoured tag scheme:
 | Tag | Meaning                            | .NET surface                |
 |----:|------------------------------------|-----------------------------|
 | 0   | Spec datetime (text)               | decode-only                 |
-| 6   | `NONE` sentinel                    | `Value.None`                |
-| 7   | Table reference                    | `Table` / `TableValue`      |
-| 8   | RecordId `[table, key]`            | `RecordId` / `RecordIdKey`  |
+| 6   | `NONE` sentinel                    | `SurrealNoneValue`          |
+| 7   | Table reference                    | `SurrealTable` / `SurrealTableValue` |
+| 8   | RecordId `[table, key]`            | `SurrealRecordId` / `SurrealRecordIdKey` |
 | 9   | UUID (text)                        | decode-only                 |
 | 10  | Decimal (text, canonical)          | `decimal`                   |
-| 12  | Datetime `[seconds, nanos]`        | `Datetime` ↔ `DateTimeOffset` |
+| 12  | Datetime `[seconds, nanos]`        | `SurrealDateTime` ↔ `DateTimeOffset` |
 | 13  | Duration (text)                    | decode-only                 |
-| 14  | Duration `[secs?, nanos?]`         | `Duration` ↔ `TimeSpan`     |
+| 14  | Duration `[secs?, nanos?]`         | `SurrealDuration` ↔ `TimeSpan` |
 | 37  | UUID (16-byte big-endian)          | `Guid`                      |
 
 Datetimes preserve full nanosecond precision via an explicit `Nanos` field
@@ -135,7 +135,7 @@ representation in the protocol.)*
 | `run` (server-side function, optional version) | yes | **yes**          |
 | `version` / `ping` (health)                | yes  | **yes**           |
 | `begin` / `commit` / `cancel` (txn id)     | yes  | **yes**           |
-| `live` / `kill` (live queries)             | yes  | **yes** (`LiveAsync` returns a `LiveQueryHandle : IAsyncEnumerable<Notification>`; `DroppedCount` exposes back-pressure-induced loss) |
+| `live` / `kill` (live queries)             | yes  | **yes** (`LiveAsync` returns a `SurrealLiveQueryHandle : IAsyncEnumerable<SurrealNotification>`; `DroppedCount` exposes back-pressure-induced loss) |
 | `export` / `import`                        | yes  | **out** — server-side these are HTTP endpoints (`/export`, `/import`), not RPC methods; out of scope alongside the HTTP transport |
 | ML model export                            | yes  | **out**           |
 
@@ -148,7 +148,7 @@ representation in the protocol.)*
 | Database                      | yes  | **yes**           |
 | Record (scope, generic params)| yes  | **yes**           |
 | Access token (bearer)         | yes  | **yes**           |
-| Refresh token / rotation      | yes  | **yes** (`Token { Access, Refresh? }`, `RefreshAsync`) |
+| Refresh token / rotation      | yes  | **yes** (`SurrealToken { SurrealAccess, Refresh? }`, `RefreshAsync`) |
 
 ### Value tree
 
@@ -157,16 +157,16 @@ representation in the protocol.)*
 | None / Null / Bool                     | 6 / —    | yes  | **yes**           |
 | Number (Int / Float / Decimal)         | — / — / 10 | yes | **yes**           |
 | String / Bytes                         | — / —    | yes  | **yes**           |
-| Datetime (full nanosecond precision)   | 0 / 12   | yes  | **yes**           |
-| Duration                               | 13 / 14  | yes  | **yes**           |
+| Datetime (full nanosecond precision)   | 0 / 12   | yes  | **yes** (`SurrealDateTime`) |
+| Duration                               | 13 / 14  | yes  | **yes** (`SurrealDuration`) |
 | Uuid                                   | 9 / 37   | yes  | **yes**           |
-| Table                                  | 7        | yes  | **yes**           |
-| RecordId (string / int / uuid keys)    | 8        | yes  | **yes**           |
-| Array / Object                         | — / —    | yes  | **yes**           |
-| Set                                    | 56       | yes  | **yes** (`SurrealSet`, `SetValue`) |
-| Range / RecordIdKeyRange               | 49 / 50 / 51 | yes | **yes** (`SurrealRange`, `Bound<T>`, `RecordIdKeyRange`, `RangeRecordIdKey`) |
-| Geometry (Point/Line/Polygon/Multi*/Collection) | 88–94 | yes | **yes** (`Geometry.Point/Line/Polygon/MultiPoint/MultiLine/MultiPolygon/Collection`) |
-| File (bucket reference)                | 55       | yes  | **yes** (`SurrealFile`, `FileValue`) |
+| Table                                  | 7        | yes  | **yes** (`SurrealTable`) |
+| RecordId (string / int / uuid / ulid keys) | 8    | yes  | **yes** (`SurrealRecordId`, `Surreal{String,Integer,Uuid,Ulid,List,Object,Range}RecordIdKey`) |
+| Array / Object                         | — / —    | yes  | **yes** (`SurrealList`, `SurrealObject`) |
+| Set                                    | 56       | yes  | **yes** (`SurrealSet`, `SurrealSetValue`) |
+| Range / RecordIdKeyRange               | 49 / 50 / 51 | yes | **yes** (`SurrealRange`, `SurrealBound<T>`, `RecordIdKeyRange`, `SurrealRangeRecordIdKey`) |
+| Geometry (Point/Line/Polygon/Multi*/Collection) | 88–94 | yes | **yes** (`SurrealGeometry.Point/Line/Polygon/MultiPoint/MultiLine/MultiPolygon/Collection`) |
+| File (bucket reference)                | 55       | yes  | **yes** (`SurrealFile`, `SurrealFileValue`) |
 | Regex                                  | —        | yes  | n/a — Rust source explicitly errors on CBOR encoding for regex (`convert.rs:450`); no wire shape exists |
 
 ### Connection lifecycle
@@ -177,8 +177,8 @@ representation in the protocol.)*
 | One-shot connect + signin + use_ns/db              | n/a  | **yes**           |
 | Auto re-auth on token expiry (transparent retry)   | yes  | **yes**           |
 | Reconnect with session replay (outside txn)        | yes  | **out** — explicit drop = explicit reconnect; we don't paper over connection state for the consumer |
-| Server version compatibility check                 | yes  | **yes** (`>=3.0.0-alpha.1, <4.0.0`; opt out via `ConnectionConfig.SkipVersionCheck`) |
-| Multi-session per connection                       | yes  | **out** — one `Surreal` instance owns its WS 1:1; spin up a second for a second session |
+| Server version compatibility check                 | yes  | **yes** (`>=3.0.0-alpha.1, <4.0.0`; opt out via `SurrealConnectionConfig.SkipVersionCheck`) |
+| Multi-session per connection                       | yes  | **out** — one `SurrealClient` instance owns its WS 1:1; spin up a second for a second session |
 
 ### Error / diagnostics
 
@@ -186,30 +186,36 @@ representation in the protocol.)*
 |----------------------------------------------------|------|-------------------|
 | Typed exception hierarchy                          | yes  | **yes** (Auth / Conflict / TransactionAborted / Constraint / Connection / Protocol / Rpc) |
 | Token-expiry signal                                | yes  | **yes** (`SurrealAuthException.IsTokenExpired`) |
-| Retry-on-conflict helper                           | n/a  | **yes** (`RetryPolicy.WithRetryAsync`) |
+| Retry-on-conflict helper                           | n/a  | **yes** (`SurrealRetryPolicy.WithRetryAsync`) |
 
 ### Consumer-side mapping
 
 | Feature                                            | Rust | Disruptor.Surreal |
 |----------------------------------------------------|------|-------------------|
-| `IRecordId` interop interface                      | yes (`Sealed` trait) | **yes**  |
+| `ISurrealRecordId` interop interface               | yes (`Sealed` trait) | **yes**  |
 | POCO mapping (attribute / source-gen / reflection) | yes (`SurrealValue` derive) | **out** — consumer brings the mapper |
 
 ## Layout
 
 ```
 src/Disruptor.Surreal/         — the library (one package)
-  Auth/                          — credentials + AccessToken
+  Auth/                          — credentials + SurrealAccessToken
   Cbor/                          — tag table, reader, writer
-  Connection/                    — Endpoint, Command, Rpc{Request,Response},
-                                   IConnection, WebSocketConnection,
-                                   SurrealOptions
+  Connection/                    — SurrealEndpoint, Command, Rpc{Request,Response},
+                                   ISurrealConnection, SurrealWebSocketConnection,
+                                   SurrealOptions, SurrealConnectionConfig,
+                                   ServerVersion
   Errors/                        — exception hierarchy
-  Query/                         — QueryResponse, QueryStatement
-  Values/                        — Value tree + scalar wrappers (Datetime,
-                                   Duration, etc.) + IRecordId
-  Surreal.cs                     — main client class
-  Transaction.cs                 — transaction handle (auto-cancel on dispose)
+  Live/                          — SurrealLiveQueryHandle, SurrealNotification,
+                                   SurrealLiveQueryOptions
+  Query/                         — SurrealQueryResponse, SurrealQueryStatement
+  Values/                        — Value tree + scalar wrappers
+                                   (SurrealDateTime, SurrealDuration, etc.)
+                                   + ISurrealRecordId
+  Patch.cs                       — JSON-Patch op factories
+  SurrealClient.cs               — main client class
+  SurrealRetryPolicy.cs          — retry-on-conflict helper
+  SurrealTransaction.cs          — transaction handle (auto-cancel on dispose)
 tests/Disruptor.Surreal.Tests/   — xUnit (CBOR roundtrip, endpoint parsing,
                                    value semantics, error classifier,
                                    options parsing)
@@ -232,4 +238,4 @@ dotnet run --project samples/Disruptor.Surreal.Sample
 
 ## License
 
-Apache-2.0.
+MIT. See [LICENSE](LICENSE).
