@@ -23,17 +23,22 @@ permanently out — we trust the database.
 
 ## Install
 
-The project targets `net10.0`. Add a project reference (no NuGet package yet):
+The project targets `net10.0`. Install from NuGet:
+
+```sh
+dotnet add package Disruptor.Surreal
+```
+
+or add a `PackageReference`:
 
 ```xml
-<ProjectReference Include="path/to/src/Disruptor.Surreal/Disruptor.Surreal.csproj" />
+<PackageReference Include="Disruptor.Surreal" Version="1.0.0" />
 ```
 
 ## Quick start
 
 ```csharp
 using Disruptor.Surreal;
-using Disruptor.Surreal.Auth;
 using Disruptor.Surreal.Connection;
 using Disruptor.Surreal.Values;
 
@@ -57,7 +62,7 @@ await db.CreateAsync(jaime, new SurrealObject
 var response = await db.QueryAsync(
     "SELECT * FROM person WHERE age >= $minAge",
     new SurrealObject { ["minAge"] = 21L });
-var rows = response.Take(0);  // Value (an ArrayValue of ObjectValue)
+var rows = response.Take(0);  // SurrealValue (a SurrealListValue of SurrealObjectValue)
 
 // Server-side transaction with rollback
 await using var tx = await db.BeginTransactionAsync();
@@ -120,6 +125,7 @@ representation in the protocol.)*
 | `use_ns` / `use_db`                        | yes  | **yes**           |
 | `signin` / `signup`                        | yes  | **yes**           |
 | `authenticate` / `invalidate`              | yes  | **yes**           |
+| `refresh` (rotate token)                   | yes  | **yes** — `RefreshAsync`; mirrors Rust `Command::Refresh` |
 | `set` / `unset` (session vars)             | yes  | **yes**           |
 | `query` (with bindings)                    | yes  | **yes**           |
 | `select` (table or RecordId)               | yes  | **yes**           |
@@ -146,7 +152,7 @@ representation in the protocol.)*
 | Root                          | yes  | **yes**           |
 | Namespace                     | yes  | **yes**           |
 | Database                      | yes  | **yes**           |
-| Record (scope, generic params)| yes  | **yes**           |
+| Record (scope, params object) | yes  | **yes**           |
 | Access token (bearer)         | yes  | **yes**           |
 | Refresh token / rotation      | yes  | **yes** (`SurrealToken { SurrealAccess, Refresh? }`, `RefreshAsync`) |
 
